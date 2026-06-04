@@ -49,9 +49,10 @@ class Level {
       }
     } else if (coinRoll < 0.10 + 0.7) {
       const n = 3 + (Math.random() * 3 | 0);
-      const cy = y - rand(50, 120);
+      const cy = y - 34;            // arc ends at run height — grab the first while running
+      const arc = rand(60, 100);    // middle coins rise into a jump
       for (let i = 0; i < n; i++) {
-        this.coins.push({ x: x + (w / (n + 1)) * (i + 1), y: cy - Math.sin((i / (n - 1)) * Math.PI) * 30, got: false });
+        this.coins.push({ x: x + (w / (n + 1)) * (i + 1), y: cy - Math.sin((i / (n - 1)) * Math.PI) * arc, got: false });
       }
     }
     // occasional spikes on wide platforms — never on a freebie row (would be a trap)
