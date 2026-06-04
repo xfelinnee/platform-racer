@@ -87,42 +87,93 @@ const Audio2 = (() => {
     ui() { tone({ freq: 600, type: 'triangle', dur: 0.06, vol: 0.25 }); },
   };
 
-  // ---- MUSIC: looping synth (bass + arp) ----
-  const scale = [0, 3, 5, 7, 10, 12, 10, 7]; // minor pentatonic-ish
-  const root = 220; // A3
-  function noteFreq(semi) { return root * Math.pow(2, semi / 12); }
+  // ---- MUSIC: an evolving synth track (chords + bass + arp + drums) ----
+  // The track walks an 8-bar chord progression and rotates between several
+  // arp patterns / sections so it keeps changing instead of looping one bar.
+  const SCALE = [0, 3, 5, 7, 10];           // minor pentatonic
+  const ROOT = 220;                          // A3
+  const STEPS_PER_BAR = 16;
+  const PROG = [0, 0, 5, 3, -2, -2, 5, 7];   // chord-root offsets, one per bar (8 bars)
+  const PATTERNS = [
+    [0, 2, 4, 2, 1, 3, 2, 4, 0, 2, 4, 5, 4, 2, 1, 0], // section A
+    [4, 3, 2, 1, 0, 1, 2, 3, 4, 2, 0, 2, 3, 1, 4, 2], // section B
+    [0, 0, 2, 2, 4, 4, 2, 2, 1, 1, 3, 3, 5, 5, 4, 2], // section C
+  ];
+  const TOTAL = PROG.length * STEPS_PER_BAR;  // full song length in steps
+
+  // Convert a scale index (can exceed the scale) into a semitone, wrapping octaves.
+  function scaleSemi(i) {
+    const oct = Math.floor(i / SCALE.length);
+    return SCALE[((i % SCALE.length) + SCALE.length) % SCALE.length] + oct * 12;
+  }
+  function noteFreq(semi) { return ROOT * Math.pow(2, semi / 12); }
+
+  function blip({ freq, type, dur, vol, attack = 0.01 }) {
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(musicGain);
+    osc.start(t); osc.stop(t + dur + 0.05);
+  }
+
+  function drum(kind) {
+    const t = ctx.currentTime;
+    if (kind === 'kick') {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(150, t);
+      osc.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+      g.gain.setValueAtTime(0.6, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+      osc.connect(g); g.connect(musicGain);
+      osc.start(t); osc.stop(t + 0.16);
+    } else { // hat
+      const dur = 0.03;
+      const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const filt = ctx.createBiquadFilter(); filt.type = 'highpass'; filt.frequency.value = 7000;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.12, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(filt); filt.connect(g); g.connect(musicGain);
+      src.start(t); src.stop(t + dur);
+    }
+  }
 
   function tickMusic() {
     if (!ctx || !musicOn) return;
-    const t = ctx.currentTime;
 
-    // bass every 4 steps
-    if (step % 4 === 0) {
-      const bf = noteFreq(scale[(step / 4) % scale.length] - 12);
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.value = bf;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-      osc.connect(g); g.connect(musicGain);
-      osc.start(t); osc.stop(t + 0.5);
+    const bar = Math.floor(step / STEPS_PER_BAR);
+    const inBar = step % STEPS_PER_BAR;
+    const chord = PROG[bar % PROG.length];
+    const pattern = PATTERNS[Math.floor(bar / 2) % PATTERNS.length]; // change section every 2 bars
+
+    // drums: kick on the beat, hats on the off-beats
+    if (inBar % 4 === 0) drum('kick');
+    if (inBar % 2 === 1) drum('hat');
+
+    // bass on each beat, following the chord root
+    if (inBar % 4 === 0) {
+      blip({ freq: noteFreq(chord - 12), type: 'triangle', dur: 0.45, vol: 0.5, attack: 0.02 });
     }
 
-    // arp lead
-    const lf = noteFreq(scale[step % scale.length] + 12);
-    const osc2 = ctx.createOscillator();
-    const g2 = ctx.createGain();
-    osc2.type = 'square';
-    osc2.frequency.value = lf;
-    g2.gain.setValueAtTime(0.0001, t);
-    g2.gain.exponentialRampToValueAtTime(0.16, t + 0.01);
-    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-    osc2.connect(g2); g2.connect(musicGain);
-    osc2.start(t); osc2.stop(t + 0.2);
+    // arp lead from the current pattern/section
+    const semi = scaleSemi(pattern[inBar]) + 12 + chord;
+    blip({ freq: noteFreq(semi), type: 'square', dur: 0.16, vol: 0.14 });
 
-    step = (step + 1) % 64;
+    // a sparkly upper harmony at the top of every other bar for variety
+    if (inBar === 12 && bar % 2 === 0) {
+      blip({ freq: noteFreq(semi + 12), type: 'triangle', dur: 0.3, vol: 0.08 });
+    }
+
+    step = (step + 1) % TOTAL;
   }
 
   function startMusic() {

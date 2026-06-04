@@ -148,6 +148,7 @@ class Game {
       // burst scales with the NUMBER of coins (capped), not their value
       const n = Math.min(40, (res.count || 1) * 6);
       const burstColor = res.bonusKind === 'risky' ? '#ff4dd2'
+        : res.bonusKind === 'leap' ? '#3cffb0'
         : res.bonusKind === 'bonus' ? '#2ee6ff' : '#ffd23c';
       this._burst(p.cx, p.cy, burstColor, res.bonusKind ? 36 : n);
       Audio2.sfx.coin();
@@ -207,11 +208,19 @@ class Game {
     Audio2.sfx.death();
     Audio2.stopMusic();
     this._burst(this.player.cx, this.player.cy, '#ff3c6c', 30);
-    // bank the coins earned this run
-    if (typeof Profiles !== 'undefined' && Profiles.current() && this.coins > 0) {
-      Profiles.addCoins(this.coins);
+    let penalty = 0;
+    if (typeof Profiles !== 'undefined' && Profiles.current()) {
+      // bank the coins earned this run
+      if (this.coins > 0) Profiles.addCoins(this.coins);
+      // hard-mode gamble: lose coins from your balance on death (floored at 0)
+      const pen = this.level ? (this.level.deathPenalty || 0) : 0;
+      if (pen > 0) {
+        penalty = Math.min(Profiles.current().coins, pen);
+        if (penalty > 0) Profiles.addCoins(-penalty);
+      }
     }
-    if (this.onDeath) this.onDeath(this.maxDist, this.coins);
+    this.deathPenalty = penalty;
+    if (this.onDeath) this.onDeath(this.maxDist, this.coins, penalty);
   }
 
   _emitTrail() {

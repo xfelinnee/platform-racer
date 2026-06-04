@@ -46,6 +46,7 @@
     document.getElementById('chipCoins').textContent = p.coins;
     document.getElementById('hudBest').textContent = p.best;
     renderLevel();
+    renderMenuCharacter();
   }
 
   // Prestige button on the main menu
@@ -166,6 +167,18 @@
   }
   document.querySelector('#profile .back-btn').addEventListener('click', () => Screens.show('menu'));
 
+  // ---- CUSTOMIZE (quick equip) ----
+  const customizeHandlers = {
+    equip(type, id) { Profiles.equip(type, id); Audio2.sfx.ui(); renderCustomize(customizeHandlers); renderMenuCharacter(); },
+    setBodyColor(id) { Profiles.setBodyColor(id); Audio2.sfx.ui(); renderCustomize(customizeHandlers); renderMenuCharacter(); },
+    equipTrail(id) { Profiles.equipTrail(id); Audio2.sfx.ui(); renderCustomize(customizeHandlers); renderMenuCharacter(); },
+  };
+  function openCustomize() {
+    renderCustomize(customizeHandlers);
+    Screens.show('customize');
+  }
+  document.querySelector('#customize .back-btn').addEventListener('click', () => { Screens.show('menu'); renderMenuCharacter(); });
+
   const resumeBtn = overlay.querySelector('[data-action="resume"]');
   const overlayBest = document.getElementById('overlayBest');
   const overlayStats = document.getElementById('overlayStats');
@@ -186,7 +199,7 @@
            `<span class="ov-val">${value}</span></div>`;
   }
 
-  game.onDeath = (dist, coins) => {
+  game.onDeath = (dist, coins, penalty) => {
     const doubled = game.coinDoublerActive;
     const isBest = Profiles.recordRun(dist, coins, game.time); // also persists run stats
     // award XP from the run: distance + a bonus per coin
@@ -194,6 +207,7 @@
     const xpRes = Profiles.addXp(xpGain);
     updateChip();
     if (isBest) document.getElementById('hudBest').textContent = dist;
+    const net = coins - (penalty || 0);
 
     setTimeout(() => {
       showOverlay('GAME OVER', '');
@@ -201,6 +215,10 @@
       let rows = '';
       rows += statRow('Distance', `${dist} <small>m</small>`);
       rows += statRow('Coins', `<span class="coin-ico"></span>+${coins}` + (doubled ? ' <em>5\u00d7</em>' : ''), 'coins');
+      if (penalty > 0) {
+        rows += statRow('Death Penalty', `\u2212${penalty}`, 'penalty');
+        rows += statRow('Net', `<span class="coin-ico"></span>${net >= 0 ? '+' : ''}${net}`, net >= 0 ? 'coins' : 'penalty');
+      }
       rows += statRow('XP Gained', `+${xpGain}`, 'xp');
       if (xpRes && xpRes.leveledUp) rows += statRow('Level Up', `\u2605 ${xpRes.level}`, 'levelup');
       if (!isBest) rows += statRow('Best', `${Profiles.current().best} <small>m</small>`, 'best');
@@ -216,9 +234,13 @@
     if (action === 'play') startGame();
     else if (action === 'shop') openShop();
     else if (action === 'profile') openProfile();
+    else if (action === 'customize') openCustomize();
     else if (action === 'settings') Screens.show('settings');
     else if (action === 'quit') quitGame();
   });
+
+  // Customize button lives in the menu character panel, outside .menu-buttons
+  document.querySelector('#menu .mc-customize').addEventListener('click', openCustomize);
 
   // ---- SWITCH PROFILE (chip) ----
   document.getElementById('profileChip').addEventListener('click', (e) => {

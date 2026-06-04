@@ -44,6 +44,13 @@
         <span class="chip-coins"><span class="coin-ico"></span><span id="chipCoins">0</span></span>
         <button class="chip-switch" data-action="switch">Switch</button>
       </div>
+      <div class="menu-character" id="menuCharacter">
+        <div class="mc-stage"><canvas id="menuCharCanvas" width="180" height="240"></canvas></div>
+        <button class="btn mc-customize" data-action="customize">
+          <span class="btn-label">Customize</span>
+          <span class="btn-glow"></span>
+        </button>
+      </div>
       <div class="menu-content">
         <h1 class="title">
           <span class="title-top">PLATFORM</span>
@@ -82,6 +89,23 @@
           </button>
         </nav>
         <footer class="credits">v1.1 &middot; Use A/D or Arrow Keys &middot; Space to Jump</footer>
+      </div>
+    </section>
+
+    <!-- CUSTOMIZE (quick equip) -->
+    <section id="customize" class="screen">
+      <div class="menu-bg">
+        <div class="grid-floor"></div>
+      </div>
+      <div class="panel customize-panel">
+        <h2 class="panel-title">CUSTOMIZE</h2>
+        <div class="customize-body">
+          <div class="customize-stage">
+            <canvas id="customizeCanvas" width="200" height="280"></canvas>
+          </div>
+          <div class="customize-options" id="customizeOptions"></div>
+        </div>
+        <button class="btn back-btn" data-action="back"><span class="btn-label">Done</span><span class="btn-glow"></span></button>
       </div>
     </section>
 

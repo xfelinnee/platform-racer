@@ -1,3 +1,35 @@
+// Per-difficulty tuning. Normal is intentionally meaty (the old "hard"),
+// Easy is a relaxed cruise, and Hard is a high-risk / high-reward gamble.
+const DIFFICULTY = {
+  easy: {
+    gapMin: 60, gapMax: 110, dropChance: 0.22,
+    emptyChance: 0.60,      // lots of breather platforms, few coins
+    coinValue: 1,
+    specialEnabled: false,  // no risky/secret/bonus coins
+    bonusChance: 0,
+    spikeChance: 0.10, spikeAnywhere: false, spikeMax: 1,
+    deathPenalty: 0,
+  },
+  normal: {
+    gapMin: 95, gapMax: 175, dropChance: 0.40,
+    emptyChance: 0.42,
+    coinValue: 1,
+    specialEnabled: true,
+    bonusChance: 0.10,
+    spikeChance: 0.40, spikeAnywhere: false, spikeMax: 1,
+    deathPenalty: 0,
+  },
+  hard: {
+    gapMin: 115, gapMax: 205, dropChance: 0.52,
+    emptyChance: 0.28,      // denser coin layouts
+    coinValue: 2,           // standard coins are worth double
+    specialEnabled: true,
+    bonusChance: 0.22,      // more frequent high-value placements
+    spikeChance: 0.7, spikeAnywhere: true, spikeMax: 3,
+    deathPenalty: 500,      // die and you lose 500 from your balance
+  },
+};
+
 // Procedural platformer level with AABB collision
 class Level {
   // loadout describes the player's active abilities so we can spawn
@@ -9,6 +41,8 @@ class Level {
     this.groundY = 520;
     this.nextX = 0;
     this.difficulty = difficulty;
+    this.cfg = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    this.deathPenalty = this.cfg.deathPenalty;
     this.loadout = {
       doubleJump: !!loadout.doubleJump,
       highJump: !!loadout.highJump,
@@ -16,10 +50,9 @@ class Level {
     };
     this._specialCd = 4; // platforms to wait before the next special coin
 
-    const d = { easy: 0, normal: 1, hard: 2 }[difficulty] ?? 1;
-    this.gapMin = 65 + d * 20;
-    this.gapMax = 115 + d * 40;
-    this.dropChance = 0.25 + d * 0.12;
+    this.gapMin = this.cfg.gapMin;
+    this.gapMax = this.cfg.gapMax;
+    this.dropChance = this.cfg.dropChance;
 
     this._seed();
   }
@@ -51,14 +84,16 @@ class Level {
     // ---- decide an ability-gated special coin (rate-limited) ----
     // The risky/secret coins WIDEN the gap into a real chasm, so resolve them
     // before placing the platform.
+    const rateMul = this.difficulty === 'hard' ? 1.7 : 1; // hard spawns specials more often
     let special = null;
-    if (this._specialCd <= 0 && kind !== 'small') {
-      if (this.loadout.hover && Math.random() < 0.16) { gap = rand(240, 320); special = 'risky'; }
-      else if (this.loadout.doubleJump && this.loadout.highJump && Math.random() < 0.14) { gap = rand(210, 290); special = 'secret'; }
+    if (this.cfg.specialEnabled && this._specialCd <= 0 && kind !== 'small') {
+      if (this.loadout.hover && Math.random() < 0.16 * rateMul) { gap = rand(240, 320); special = 'risky'; }
+      else if (this.loadout.doubleJump && this.loadout.highJump && Math.random() < 0.14 * rateMul) { gap = rand(210, 290); special = 'secret'; }
     }
-    if (!special && this._specialCd <= 0 &&
-        (this.loadout.doubleJump || this.loadout.highJump) && Math.random() < 0.10) {
-      special = 'bonus';
+    if (this.cfg.specialEnabled && !special && this._specialCd <= 0 &&
+        (this.loadout.doubleJump || this.loadout.highJump) && Math.random() < this.cfg.bonusChance) {
+      // hard mode mixes in a mid-tier "+50" leap coin alongside the basic "+20"
+      special = (this.difficulty === 'hard' && Math.random() < 0.5) ? 'leap' : 'bonus';
     }
 
     const x = this.nextX + gap;
@@ -67,16 +102,21 @@ class Level {
     // ---- coin layout for this platform ----
     const pattern = this._spawnCoins(x, y, w, kind);
 
-    // ---- place the special coin ----
+    // ---- place the special coin (values scale a little on hard) ----
+    const vmul = this.difficulty === 'hard' ? 1.5 : 1;
     if (special === 'risky') {
       // big reward sitting low in the chasm: leap in, hover across, land the far edge
-      this.coins.push({ x: x - gap * 0.5, y: y + 78, got: false, value: 200, kind: 'risky' });
+      this.coins.push({ x: x - gap * 0.5, y: y + 78, got: false, value: Math.round(200 * vmul), kind: 'risky' });
       this._specialCd = 11;
     } else if (special === 'secret') {
       // high in the air over the chasm: needs the leap + double jump, with a long fall waiting below
       const topY = Math.min(y, this.lastY);
-      this.coins.push({ x: x - gap * 0.5, y: topY - 150, got: false, value: 100, kind: 'secret' });
+      this.coins.push({ x: x - gap * 0.5, y: topY - 150, got: false, value: Math.round(100 * vmul), kind: 'secret' });
       this._specialCd = 10;
+    } else if (special === 'leap') {
+      // mid bonus arcing above the platform — needs a committed jump
+      this.coins.push({ x: x + w * 0.5, y: y - 150, got: false, value: 50, kind: 'leap' });
+      this._specialCd = 7;
     } else if (special === 'bonus') {
       // lighter bonus for a single mobility buff
       this.coins.push({ x: x + w * 0.5, y: y - 116, got: false, value: 20, kind: 'bonus' });
@@ -84,35 +124,63 @@ class Level {
     }
     if (this._specialCd > 0) this._specialCd--;
 
-    // occasional spikes on wide platforms — never on a flat freebie row (would be a trap)
-    if (pattern !== 'line' && pattern !== 'hop' && w > 180 &&
-        Math.random() < 0.4 + (this.difficulty === 'hard' ? 0.2 : 0)) {
-      const sx = x + w * 0.5;
-      this.spikes.push({ x: sx, y: y, w: 30 });
-    }
+    // ---- spikes ----
+    this._spawnSpikes(x, y, w, pattern);
 
     this.nextX = x + w;
     this.lastY = y;
   }
 
-  // Lay out the standard (value-1) coins on a platform. Returns the pattern name.
+  // Spikes. Easy/Normal place a single spike in the middle of wide platforms.
+  // Hard scatters 1-3 spikes anywhere across the platform (a real minefield).
+  _spawnSpikes(x, y, w, pattern) {
+    const cfg = this.cfg;
+    // flat freebie rows stay safe on non-hard so they aren't cheap traps
+    if (!cfg.spikeAnywhere && (pattern === 'line' || pattern === 'hop')) return;
+
+    if (cfg.spikeAnywhere) {
+      if (w < 110 || Math.random() > cfg.spikeChance) return;
+      const count = 1 + (Math.random() * cfg.spikeMax | 0);
+      const placed = [];
+      for (let i = 0; i < count; i++) {
+        // keep spikes off the very edges so platforms remain landable
+        const sx = x + rand(28, w - 28);
+        if (placed.some(px => Math.abs(px - sx) < 46)) continue; // avoid overlap
+        placed.push(sx);
+        this.spikes.push({ x: sx, y, w: 30 });
+      }
+    } else {
+      if (w > 180 && Math.random() < cfg.spikeChance) {
+        this.spikes.push({ x: x + w * 0.5, y, w: 30 });
+      }
+    }
+  }
+
+  // Lay out the standard coins on a platform. Returns the pattern name.
+  // Coin value scales with difficulty (hard coins are worth more).
   _spawnCoins(x, y, w, kind) {
     const cy = y - 34;                 // run height (player torso while standing)
-    const add = (cx, cyy) => this.coins.push({ x: cx, y: cyy, got: false });
+    const val = this.cfg.coinValue;
+    const add = (cx, cyy) => this.coins.push({ x: cx, y: cyy, got: false, value: val });
 
-    // Many platforms carry NO coins now — they should feel earned, not paved.
+    // Many platforms carry NO coins — they should feel earned, not paved.
+    const empty = this.cfg.emptyChance;
     let roll = Math.random();
     if (kind === 'long') roll = 0.1 + roll * 0.9;  // long pads slightly favour having coins
     if (kind === 'small') roll *= 0.85;            // small pads lean empty/short
 
-    if (roll < 0.42) {
-      return 'none';                          // empty platform — breather
-    } else if (roll < 0.58) {
+    if (roll < empty) return 'none';               // empty platform — breather
+
+    // Remap the remaining probability into [0,1] so the pattern mix stays
+    // consistent regardless of how empty each difficulty is.
+    const t = (roll - empty) / (1 - empty);
+
+    if (t < 0.28) {
       // short straight run, sparse spacing
       const n = clamp(Math.round(w / 70), 2, 6);
       for (let i = 0; i < n; i++) add(x + (w / (n + 1)) * (i + 1), cy);
       return 'line';
-    } else if (roll < 0.74) {
+    } else if (t < 0.56) {
       // "3-4 flat then a hop" — one or two groups, not wall-to-wall
       let cx = x + 26;
       const step = 30;
@@ -123,7 +191,7 @@ class Level {
         if (cx < x + w - 20) { add(cx, cy - 54); cx += step + 20; } // the hop
       }
       return 'hop';
-    } else if (roll < 0.90) {
+    } else if (t < 0.82) {
       // jump arc — middle coins rise into the air
       const n = 3 + (Math.random() * 2 | 0);
       const arc = rand(60, 100);
@@ -187,7 +255,7 @@ class Level {
     let collected = 0;   // total coin VALUE this frame
     let count = 0;       // number of coins picked up (for particle burst)
     let bonusKind = null; // 'bonus' | 'secret' | 'risky' if a special was grabbed
-    const rank = { bonus: 1, secret: 2, risky: 3 };
+    const rank = { bonus: 1, leap: 2, secret: 3, risky: 4 };
     for (const c of this.coins) {
       if (c.got) continue;
       const dx = (p.x + p.w / 2) - c.x;
@@ -283,6 +351,7 @@ class Level {
   _drawSpecialCoin(ctx, x, y, t, kind) {
     const styles = {
       bonus:  { col: '#2ee6ff', r: 11, label: '+20' },
+      leap:   { col: '#3cffb0', r: 13, label: '+50' },
       secret: { col: '#ffd23c', r: 14, label: '+100' },
       risky:  { col: '#ff4dd2', r: 15, label: '+200' },
     };

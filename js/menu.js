@@ -380,12 +380,129 @@ function drawCosmeticPreview(canvas, opts) {
   pl.hatTint = opts.hatTint || null;
   pl.clothesTint = opts.clothesTint || null;
   pl.hatReviveAvailable = true; // show golden cowboy hat in its gold (unused) state
-  const scale = 0.8;
+  const scale = opts.scale || 0.8;
   ctx.save();
   ctx.translate(canvas.width / 2 - pl.cx * scale, canvas.height - 6 - pl.feet * scale);
   ctx.scale(scale, scale);
   pl.draw(ctx);
   ctx.restore();
+}
+
+// ---------- MENU CHARACTER + QUICK CUSTOMIZE ----------
+function equippedPreviewOpts(scale) {
+  const hat = Profiles.equipped('hat');
+  const clothes = Profiles.equipped('clothes');
+  return {
+    hat, clothes,
+    hatTint: hat ? Profiles.itemColorHex('hat', hat) : null,
+    clothesTint: clothes ? Profiles.itemColorHex('clothes', clothes) : null,
+    body: Profiles.bodyColorHex(),
+    scale,
+  };
+}
+
+function renderMenuCharacter() {
+  const canvas = document.getElementById('menuCharCanvas');
+  if (!canvas || typeof Profiles === 'undefined' || !Profiles.current()) return;
+  drawCosmeticPreview(canvas, equippedPreviewOpts(1.4));
+}
+
+// handlers: { equip(type,id), setBodyColor(id), equipTrail(id) }
+function renderCustomize(handlers) {
+  const p = Profiles.current();
+  if (!p) return;
+  drawCosmeticPreview(document.getElementById('customizeCanvas'), equippedPreviewOpts(2.0));
+
+  const root = document.getElementById('customizeOptions');
+  root.innerHTML = '';
+
+  const section = (title, build) => {
+    const sec = document.createElement('div');
+    sec.className = 'cz-section';
+    const h = document.createElement('h3');
+    h.className = 'cz-title';
+    h.textContent = title;
+    sec.appendChild(h);
+    const row = document.createElement('div');
+    row.className = 'cz-row';
+    build(row);
+    sec.appendChild(row);
+    root.appendChild(sec);
+  };
+
+  // a chip with a tiny character preview + label
+  const czItem = (label, equipped, drawFn, onClick) => {
+    const chip = document.createElement('button');
+    chip.className = 'cz-item' + (equipped ? ' on' : '');
+    const cv = document.createElement('canvas');
+    cv.width = 56; cv.height = 70; cv.className = 'cz-prev';
+    chip.appendChild(cv);
+    const lab = document.createElement('span');
+    lab.className = 'cz-label';
+    lab.textContent = label;
+    chip.appendChild(lab);
+    drawFn(cv);
+    chip.addEventListener('click', onClick);
+    return chip;
+  };
+
+  // HATS (owned only) + None
+  section('Hat', row => {
+    row.appendChild(czItem('None', !Profiles.equipped('hat'),
+      cv => drawCosmeticPreview(cv, { body: Profiles.bodyColorHex(), scale: 0.85 }),
+      () => handlers.equip('hat', null)));
+    for (const h of Profiles.HATS) {
+      if (!Profiles.ownsCosmetic('hat', h.id)) continue;
+      row.appendChild(czItem(h.name, Profiles.equipped('hat') === h.id,
+        cv => drawCosmeticPreview(cv, { hat: h.id, hatTint: Profiles.itemColorHex('hat', h.id), body: Profiles.bodyColorHex(), scale: 0.85 }),
+        () => handlers.equip('hat', h.id)));
+    }
+  });
+
+  // CLOTHES (owned only) + None
+  section('Clothes', row => {
+    row.appendChild(czItem('None', !Profiles.equipped('clothes'),
+      cv => drawCosmeticPreview(cv, { body: Profiles.bodyColorHex(), scale: 0.85 }),
+      () => handlers.equip('clothes', null)));
+    for (const c of Profiles.CLOTHES) {
+      if (!Profiles.ownsCosmetic('clothes', c.id)) continue;
+      row.appendChild(czItem(c.name, Profiles.equipped('clothes') === c.id,
+        cv => drawCosmeticPreview(cv, { clothes: c.id, clothesTint: Profiles.itemColorHex('clothes', c.id), body: Profiles.bodyColorHex(), scale: 0.85 }),
+        () => handlers.equip('clothes', c.id)));
+    }
+  });
+
+  // COLOR swatches (owned only)
+  section('Color', row => {
+    for (const col of Profiles.colorCatalogue()) {
+      if (!Profiles.ownsColor(col.id)) continue;
+      row.appendChild(makeSwatch(col.hex, Profiles.bodyColorId() === col.id, false, () => handlers.setBodyColor(col.id)));
+    }
+  });
+
+  // TRAILS (owned only) + None
+  section('Trail', row => {
+    const none = document.createElement('button');
+    none.className = 'cz-item' + (!Profiles.equippedTrail() ? ' on' : '');
+    none.innerHTML = `<canvas class="cz-prev" width="56" height="70"></canvas><span class="cz-label">None</span>`;
+    none.addEventListener('click', () => handlers.equipTrail(null));
+    row.appendChild(none);
+    for (const tr of Profiles.trailCatalogue()) {
+      if (!Profiles.ownsTrail(tr.id)) continue;
+      const chip = document.createElement('button');
+      chip.className = 'cz-item' + (Profiles.equippedTrail() === tr.id ? ' on' : '');
+      const cv = document.createElement('canvas');
+      cv.width = 56; cv.height = 70; cv.className = 'cz-prev';
+      chip.appendChild(cv);
+      const lab = document.createElement('span');
+      lab.className = 'cz-label';
+      lab.textContent = tr.name.replace(' Trail', '');
+      chip.appendChild(lab);
+      drawTrailPreview(cv, tr);
+      chip.addEventListener('click', () => handlers.equipTrail(tr.id));
+      row.appendChild(chip);
+    }
+  });
 }
 
 // ---------- PROFILE SCREEN ----------
