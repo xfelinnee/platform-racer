@@ -45,7 +45,18 @@
     document.getElementById('chipName').textContent = p.name;
     document.getElementById('chipCoins').textContent = p.coins;
     document.getElementById('hudBest').textContent = p.best;
+    renderLevel();
   }
+
+  // Prestige button on the main menu
+  document.getElementById('prestigeBtn').addEventListener('click', () => {
+    const pr = Profiles.progress();
+    if (!pr || !pr.canPrestige) return;
+    if (confirm('Prestige now? This resets you to Level 1 and adds a Prestige star.')) {
+      const res = Profiles.prestige();
+      if (res.ok) { Audio2.sfx.coin(); renderLevel(); }
+    }
+  });
 
   // ---- LOGIN ----
   function openLogin() {
@@ -74,16 +85,38 @@
   });
 
   // ---- SHOP ----
-  function openShop() {
-    renderShop(buyUpgrade);
-    Screens.show('shop');
-  }
-  function buyUpgrade(id) {
-    const res = Profiles.buy(id);
-    if (res.ok) { Audio2.sfx.coin(); }
-    renderShop(buyUpgrade);
+  let shopTab = 'buffs';
+  const shopHandlers = {
+    buyUpgrade(id) {
+      const res = Profiles.buy(id);
+      if (res.ok) Audio2.sfx.coin();
+      refreshShop();
+    },
+    buyCosmetic(type, id) {
+      const res = Profiles.buyCosmetic(type, id);
+      if (res.ok) { Audio2.sfx.coin(); Profiles.equip(type, id); } // auto-equip on purchase
+      refreshShop();
+    },
+    equip(type, id) {
+      Profiles.equip(type, id);
+      Audio2.sfx.ui();
+      refreshShop();
+    },
+  };
+  function refreshShop() {
+    renderShop(shopTab, shopHandlers);
     updateChip();
   }
+  function openShop() {
+    refreshShop();
+    Screens.show('shop');
+  }
+  document.getElementById('shopTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.shop-tab');
+    if (!btn) return;
+    shopTab = btn.dataset.tab;
+    refreshShop();
+  });
   document.querySelector('#shop .back-btn').addEventListener('click', () => Screens.show('menu'));
 
   const resumeBtn = overlay.querySelector('[data-action="resume"]');
@@ -97,12 +130,16 @@
 
   game.onDeath = (dist, coins) => {
     const isBest = Profiles.recordRun(dist); // also persists
+    // award XP from the run: distance + a bonus per coin
+    const xpGain = dist + coins * 2;
+    const xpRes = Profiles.addXp(xpGain);
     updateChip();
-    let sub = `Distance ${dist}m  ·  +${coins} coins`;
+    let sub = `Distance ${dist}m  ·  +${coins} coins  ·  +${xpGain} XP`;
     if (isBest) {
       document.getElementById('hudBest').textContent = dist;
-      sub = `NEW BEST! ${dist}m  ·  +${coins} coins`;
+      sub = `NEW BEST! ${dist}m  ·  +${coins} coins  ·  +${xpGain} XP`;
     }
+    if (xpRes && xpRes.leveledUp) sub += `  ·  LEVEL UP → ${xpRes.level}!`;
     setTimeout(() => showOverlay('GAME OVER', sub), 500);
   };
 

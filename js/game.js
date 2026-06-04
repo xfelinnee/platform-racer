@@ -57,6 +57,14 @@ class Game {
       if (Profiles.owns('coins')) this.coinMult = 1.5;
       if (Profiles.owns('doubleJump')) this.player.maxJumps = 2;
       if (Profiles.owns('secondChance')) this.revivesLeft = 1;
+
+      // equipped cosmetics + their buffs
+      this.player.hat = Profiles.equipped('hat');
+      this.player.clothes = Profiles.equipped('clothes');
+      const buff = Profiles.equippedHatBuff();
+      if (buff === 'highJump') this.player.jumpVel = 16.8;     // higher leap (default 14.5)
+      if (buff === 'hover') this.player.canHover = true;        // hold jump in air to slow-fall
+      if (buff === 'revive') this.player.hatReviveAvailable = true; // golden cowboy: 1 free revive
     }
 
     this.state = 'playing';
@@ -134,7 +142,8 @@ class Game {
     // death: fell or spike
     const fellOff = p.y > (this.level.groundY + 600);
     if ((res.dead || fellOff) && this.invuln <= 0) {
-      if (this.revivesLeft > 0) { this._revive(); }
+      if (this.revivesLeft > 0) { this.revivesLeft--; this._revive(); }
+      else if (this.player.hatReviveAvailable) { this.player.hatReviveAvailable = false; this._revive(); } // golden cowboy hat turns brown
       else { this._die(); return; }
     }
 
@@ -147,7 +156,6 @@ class Game {
   }
 
   _revive() {
-    this.revivesLeft--;
     const p = this.player;
     p.x = this.lastSafe.x;
     p.y = this.lastSafe.y - 40;

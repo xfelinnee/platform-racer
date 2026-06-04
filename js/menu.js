@@ -103,33 +103,77 @@ function renderProfiles(onPick) {
   }
 }
 
+// ---------- LEVEL / XP BAR ----------
+function renderLevel() {
+  const pr = Profiles.progress();
+  if (!pr) return;
+  document.getElementById('lvlBadge').textContent = `LVL ${pr.level}`;
+  const badge = document.getElementById('prestigeBadge');
+  badge.textContent = pr.prestige > 0 ? `\u2605 P${pr.prestige}` : '';
+  badge.style.display = pr.prestige > 0 ? 'inline-flex' : 'none';
+
+  const pct = pr.atMax ? 100 : Math.max(0, Math.min(100, (pr.xp / pr.need) * 100));
+  document.getElementById('xpFill').style.width = pct + '%';
+  document.getElementById('xpText').textContent = pr.atMax
+    ? (pr.canPrestige ? 'MAX \u00b7 Ready to Prestige' : 'MAX LEVEL')
+    : `${pr.xp} / ${pr.need} XP`;
+
+  const btn = document.getElementById('prestigeBtn');
+  btn.style.display = pr.canPrestige ? 'block' : 'none';
+}
+
 // ---------- SHOP ----------
-function renderShop(onBuy) {
+// tab: 'buffs' | 'hats' | 'clothes'
+// handlers: { buyUpgrade, buyCosmetic, equip }
+function renderShop(tab, handlers) {
   const p = Profiles.current();
   if (!p) return;
   document.getElementById('shopCoins').textContent = p.coins;
+
+  // reflect active tab button
+  document.querySelectorAll('#shopTabs .shop-tab').forEach(b => {
+    b.classList.toggle('on', b.dataset.tab === tab);
+  });
+
   const itemsEl = document.getElementById('shopItems');
   itemsEl.innerHTML = '';
 
-  for (const up of Profiles.UPGRADES) {
-    const owned = p.owned[up.id];
-    const canAfford = p.coins >= up.price;
+  if (tab === 'buffs') {
+    for (const up of Profiles.UPGRADES) {
+      const owned = p.owned[up.id];
+      const canAfford = p.coins >= up.price;
+      const card = document.createElement('div');
+      card.className = 'shop-item' + (owned ? ' owned' : (canAfford ? '' : ' cant'));
+      card.innerHTML = `<h3></h3><p></p><button class="si-buy" ${owned ? 'disabled' : ''}></button>`;
+      card.querySelector('h3').textContent = up.name;
+      card.querySelector('p').textContent = up.desc;
+      const btn = card.querySelector('.si-buy');
+      if (owned) btn.textContent = 'OWNED';
+      else { btn.innerHTML = `<span class="coin-ico"></span>${up.price}`; btn.addEventListener('click', () => handlers.buyUpgrade(up.id)); }
+      itemsEl.appendChild(card);
+    }
+    return;
+  }
+
+  // cosmetics: hats or clothes
+  const type = (tab === 'hats') ? 'hat' : 'clothes';
+  const list = (tab === 'hats') ? Profiles.HATS : Profiles.CLOTHES;
+  for (const item of list) {
+    const owned = Profiles.ownsCosmetic(type, item.id);
+    const isEquipped = Profiles.equipped(type) === item.id;
+    const canAfford = p.coins >= item.price;
     const card = document.createElement('div');
-    card.className = 'shop-item' + (owned ? ' owned' : (canAfford ? '' : ' cant'));
-
-    let btnLabel;
-    if (owned) btnLabel = 'OWNED';
-    else btnLabel = `Buy &middot; ${up.price}`;
-
-    card.innerHTML =
-      `<h3></h3><p></p>` +
-      `<button class="si-buy" ${owned ? 'disabled' : ''}>${owned ? 'OWNED' : ''}</button>`;
-    card.querySelector('h3').textContent = up.name;
-    card.querySelector('p').textContent = up.desc;
+    card.className = 'shop-item' + (isEquipped ? ' equipped' : (owned ? ' owned' : (canAfford ? '' : ' cant')));
+    card.innerHTML = `<h3></h3><p></p><button class="si-buy"></button>`;
+    card.querySelector('h3').textContent = item.name;
+    card.querySelector('p').textContent = item.desc;
     const btn = card.querySelector('.si-buy');
     if (!owned) {
-      btn.innerHTML = `<span class="coin-ico"></span>${up.price}`;
-      btn.addEventListener('click', () => onBuy(up.id));
+      btn.innerHTML = `<span class="coin-ico"></span>${item.price}`;
+      btn.addEventListener('click', () => handlers.buyCosmetic(type, item.id));
+    } else {
+      btn.textContent = isEquipped ? 'EQUIPPED' : 'Equip';
+      btn.addEventListener('click', () => handlers.equip(type, item.id));
     }
     itemsEl.appendChild(card);
   }

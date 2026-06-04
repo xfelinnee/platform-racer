@@ -22,6 +22,14 @@ class Player {
     this.maxJumps = 1;       // 2 with double-jump upgrade
     this.jumpsUsed = 0;
 
+    // cosmetics + their buffs
+    this.hat = null;             // equipped hat id
+    this.clothes = null;         // equipped clothes id
+    this.canHover = false;       // propeller hat
+    this.hovering = false;
+    this.hatReviveAvailable = false; // golden cowboy hat
+    this.propSpin = 0;           // propeller animation
+
     // tuning
     this.accel = 0.9;
     this.maxRun = 5.2;
@@ -74,6 +82,15 @@ class Player {
     // asymmetric gravity: lighter going up, slightly more coming down for a smooth arc
     this.vy += (this.vy < 0 ? this.gravity : this.fallGravity);
     if (this.vy > 15) this.vy = 15;
+
+    // propeller hat: hold Jump (W) in the air while falling to hover / slow-fall
+    this.hovering = false;
+    if (this.canHover && !this.onGround && this.vy > 0 && Input.held('jump')) {
+      this.vy = Math.min(this.vy, 1.8);
+      this.hovering = true;
+    }
+    // spin the propeller (faster while hovering)
+    this.propSpin += this.hovering ? 0.9 : 0.3;
 
     const wasAir = !this.onGround;
 
@@ -216,6 +233,9 @@ class Player {
     ctx.lineTo(shoulder.x, shoulder.y);
     ctx.stroke();
 
+    // equipped clothes (cosmetic overlay on the torso)
+    if (this.clothes) this._drawClothes(ctx, hip, shoulder);
+
     // front leg + arm (bold, bright)
     this._limb(ctx, hip, knL, ftL, 9, '#2ee6ff');
     this._limb(ctx, shoulder, elL, haL, 7, '#2ee6ff');
@@ -243,6 +263,127 @@ class Player {
     ctx.fillStyle = '#ffffff';
     ctx.fill();
 
+    // equipped hat
+    if (this.hat) this._drawHat(ctx, headY, headR);
+
+    ctx.restore();
+  }
+
+  // ---- COSMETIC: HATS ----
+  _drawHat(ctx, headY, headR) {
+    const topY = headY - headR; // crown of the head
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    if (this.hat === 'topHat') {
+      // brim
+      ctx.fillStyle = '#15151c';
+      ctx.fillRect(-headR - 3, topY - 1, (headR + 3) * 2, 3);
+      // stovepipe
+      ctx.fillRect(-headR + 2, topY - 16, (headR - 2) * 2, 16);
+      // band
+      ctx.fillStyle = '#2ee6ff';
+      ctx.fillRect(-headR + 2, topY - 5, (headR - 2) * 2, 3);
+    } else if (this.hat === 'propHat') {
+      // little cap
+      ctx.fillStyle = '#ff3c6c';
+      ctx.beginPath();
+      ctx.arc(0, topY + 1, headR - 1, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#ffd23c';
+      ctx.fillRect(-headR + 1, topY, (headR - 1) * 2, 2);
+      // spinning propeller
+      const stalkY = topY - 4;
+      ctx.strokeStyle = '#0a3a8c';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, topY + 1); ctx.lineTo(0, stalkY); ctx.stroke();
+      ctx.save();
+      ctx.translate(0, stalkY);
+      ctx.rotate(this.propSpin);
+      ctx.fillStyle = '#2ee6ff';
+      ctx.fillRect(-13, -1.5, 26, 3);
+      ctx.fillStyle = '#6fa8ff';
+      ctx.fillRect(-1.5, -13, 3, 26);
+      ctx.restore();
+      ctx.beginPath(); ctx.arc(0, stalkY, 2, 0, Math.PI * 2); ctx.fillStyle = '#ffd23c'; ctx.fill();
+    } else if (this.hat === 'goldCowboy') {
+      // gold while the revive is available, brown once it has been used
+      const c = this.hatReviveAvailable ? '#ffd23c' : '#7a5230';
+      const c2 = this.hatReviveAvailable ? '#b8860b' : '#5a3a22';
+      // wide brim
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.ellipse(0, topY + 1, headR + 6, 3.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // crown
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.moveTo(-headR + 2, topY + 1);
+      ctx.quadraticCurveTo(-headR + 2, topY - 12, 0, topY - 12);
+      ctx.quadraticCurveTo(headR - 2, topY - 12, headR - 2, topY + 1);
+      ctx.fill();
+      // band
+      ctx.strokeStyle = c2;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-headR + 2, topY - 3); ctx.lineTo(headR - 2, topY - 3); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ---- COSMETIC: CLOTHES (no buffs) ----
+  _drawClothes(ctx, hip, shoulder) {
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const torso = (color, width) => {
+      ctx.strokeStyle = color; ctx.lineWidth = width;
+      ctx.beginPath(); ctx.moveTo(hip.x, hip.y); ctx.lineTo(shoulder.x, shoulder.y); ctx.stroke();
+    };
+    const skirt = (color, halfW, toY) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(hip.x - 4, hip.y);
+      ctx.lineTo(hip.x - halfW, toY);
+      ctx.lineTo(hip.x + halfW, toY);
+      ctx.lineTo(hip.x + 4, hip.y);
+      ctx.closePath(); ctx.fill();
+    };
+    switch (this.clothes) {
+      case 'suit':
+        torso('#1b1f2e', 12);
+        // white collar + tie
+        ctx.strokeStyle = '#e8f0ff'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(shoulder.x - 3, shoulder.y + 2); ctx.lineTo(shoulder.x + 3, shoulder.y + 2); ctx.stroke();
+        ctx.strokeStyle = '#ff3c6c'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(0, shoulder.y + 2); ctx.lineTo(0, hip.y - 4); ctx.stroke();
+        break;
+      case 'cowboy':
+        torso('#8a5a2b', 12);
+        // vest opening
+        ctx.strokeStyle = '#c98a4b'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, shoulder.y + 1); ctx.lineTo(0, hip.y); ctx.stroke();
+        // bandana
+        ctx.strokeStyle = '#ff3c6c'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(shoulder.x - 4, shoulder.y); ctx.lineTo(shoulder.x + 4, shoulder.y); ctx.stroke();
+        break;
+      case 'street':
+        torso('#2f8f5b', 13);
+        // hoodie pocket line
+        ctx.strokeStyle = '#1d6e42'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-4, hip.y - 2); ctx.lineTo(4, hip.y - 2); ctx.stroke();
+        break;
+      case 'formalDress':
+        torso('#7a2b8a', 11);
+        skirt('#7a2b8a', 13, -4);
+        break;
+      case 'weddingDress':
+        torso('#f3f3ff', 11);
+        skirt('#f3f3ff', 16, -2);
+        // veil sheen
+        ctx.strokeStyle = '#cfe0ff'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-12, -3); ctx.lineTo(12, -3); ctx.stroke();
+        break;
+    }
     ctx.restore();
   }
 

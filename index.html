@@ -50,6 +50,15 @@
           <span class="title-bottom">RACER</span>
         </h1>
         <p class="tagline">DASH &middot; LEAP &middot; SURVIVE</p>
+        <div class="level-bar" id="levelBar">
+          <div class="lvl-info">
+            <span class="lvl-badge" id="lvlBadge">LVL 1</span>
+            <span class="prestige-badge" id="prestigeBadge"></span>
+            <span class="xp-text" id="xpText">0 / 100 XP</span>
+          </div>
+          <div class="xp-track"><div class="xp-fill" id="xpFill"></div></div>
+          <button class="prestige-btn" id="prestigeBtn" style="display:none">PRESTIGE &#9733;</button>
+        </div>
         <nav class="menu-buttons">
           <button class="btn" data-action="play">
             <span class="btn-label">Single Player</span>
@@ -81,6 +90,11 @@
         <div class="shop-header">
           <h2 class="panel-title">SHOP</h2>
           <div class="shop-balance"><span class="coin-ico"></span><span id="shopCoins">0</span></div>
+        </div>
+        <div class="shop-tabs" id="shopTabs">
+          <button class="shop-tab on" data-tab="buffs">Buffs</button>
+          <button class="shop-tab" data-tab="hats">Hats</button>
+          <button class="shop-tab" data-tab="clothes">Clothes</button>
         </div>
         <div id="shopItems" class="shop-items"></div>
         <button class="btn back-btn" data-action="back"><span class="btn-label">Back</span><span class="btn-glow"></span></button>
