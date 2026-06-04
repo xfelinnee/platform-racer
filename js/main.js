@@ -92,6 +92,11 @@
       if (res.ok) Audio2.sfx.coin();
       refreshShop();
     },
+    toggleBuff(id) {
+      Profiles.toggleBuff(id);
+      Audio2.sfx.ui();
+      refreshShop();
+    },
     buyCosmetic(type, id) {
       const res = Profiles.buyCosmetic(type, id);
       if (res.ok) { Audio2.sfx.coin(); Profiles.equip(type, id); } // auto-equip on purchase
@@ -99,6 +104,41 @@
     },
     equip(type, id) {
       Profiles.equip(type, id);
+      Audio2.sfx.ui();
+      refreshShop();
+    },
+    buyColor(id) {
+      const res = Profiles.buyColor(id);
+      if (res.ok) { Audio2.sfx.coin(); Profiles.setBodyColor(id); } // auto-select on purchase
+      refreshShop();
+    },
+    setBodyColor(id) {
+      Profiles.setBodyColor(id);
+      Audio2.sfx.ui();
+      refreshShop();
+    },
+    setItemColor(type, id, colorId) {
+      Profiles.setItemColor(type, id, colorId);
+      Audio2.sfx.ui();
+      refreshShop();
+    },
+    buyConsumable(id) {
+      const res = Profiles.buyConsumable(id);
+      if (res.ok) Audio2.sfx.coin();
+      refreshShop();
+    },
+    armCoinDoubler() {
+      Profiles.setCoinDoublerArmed(!Profiles.coinDoublerArmed());
+      Audio2.sfx.ui();
+      refreshShop();
+    },
+    buyTrail(id) {
+      const res = Profiles.buyTrail(id);
+      if (res.ok) { Audio2.sfx.coin(); Profiles.equipTrail(id); } // auto-equip on purchase
+      refreshShop();
+    },
+    equipTrail(id) {
+      Profiles.equipTrail(id);
       Audio2.sfx.ui();
       refreshShop();
     },
@@ -119,6 +159,13 @@
   });
   document.querySelector('#shop .back-btn').addEventListener('click', () => Screens.show('menu'));
 
+  // ---- PROFILE ----
+  function openProfile() {
+    renderProfile();
+    Screens.show('profile');
+  }
+  document.querySelector('#profile .back-btn').addEventListener('click', () => Screens.show('menu'));
+
   const resumeBtn = overlay.querySelector('[data-action="resume"]');
   function showOverlay(title, sub) {
     overlayTitle.textContent = title;
@@ -129,7 +176,7 @@
   }
 
   game.onDeath = (dist, coins) => {
-    const isBest = Profiles.recordRun(dist); // also persists
+    const isBest = Profiles.recordRun(dist, coins, game.time); // also persists run stats
     // award XP from the run: distance + a bonus per coin
     const xpGain = dist + coins * 2;
     const xpRes = Profiles.addXp(xpGain);
@@ -150,6 +197,7 @@
     const action = btn.dataset.action;
     if (action === 'play') startGame();
     else if (action === 'shop') openShop();
+    else if (action === 'profile') openProfile();
     else if (action === 'settings') Screens.show('settings');
     else if (action === 'quit') quitGame();
   });

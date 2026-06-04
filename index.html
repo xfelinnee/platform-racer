@@ -68,6 +68,10 @@
             <span class="btn-label">Shop</span>
             <span class="btn-glow"></span>
           </button>
+          <button class="btn" data-action="profile">
+            <span class="btn-label">Profile</span>
+            <span class="btn-glow"></span>
+          </button>
           <button class="btn" data-action="settings">
             <span class="btn-label">Settings</span>
             <span class="btn-glow"></span>
@@ -93,10 +97,34 @@
         </div>
         <div class="shop-tabs" id="shopTabs">
           <button class="shop-tab on" data-tab="buffs">Buffs</button>
+          <button class="shop-tab" data-tab="items">Items</button>
+          <button class="shop-tab" data-tab="colors">Colors</button>
           <button class="shop-tab" data-tab="hats">Hats</button>
           <button class="shop-tab" data-tab="clothes">Clothes</button>
+          <button class="shop-tab" data-tab="trails">Trails</button>
         </div>
         <div id="shopItems" class="shop-items"></div>
+        <button class="btn back-btn" data-action="back"><span class="btn-label">Back</span><span class="btn-glow"></span></button>
+      </div>
+    </section>
+
+    <!-- PROFILE -->
+    <section id="profile" class="screen">
+      <div class="menu-bg">
+        <div class="grid-floor"></div>
+      </div>
+      <div class="panel profile-panel">
+        <div class="shop-header">
+          <h2 class="panel-title">PROFILE</h2>
+          <div class="shop-balance"><span class="coin-ico"></span><span id="profileCoins">0</span></div>
+        </div>
+        <div class="profile-id">
+          <span class="profile-name" id="profileName">Player</span>
+          <span class="profile-rank" id="profileRank">Level 1</span>
+        </div>
+        <div id="profileStats" class="profile-stats"></div>
+        <h3 class="profile-subhead">Collection</h3>
+        <div id="profileUnlocks" class="profile-unlocks"></div>
         <button class="btn back-btn" data-action="back"><span class="btn-label">Back</span><span class="btn-glow"></span></button>
       </div>
     </section>

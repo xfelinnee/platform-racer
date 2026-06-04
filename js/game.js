@@ -38,7 +38,15 @@ class Game {
 
   start() {
     this.resize();
-    this.level = new Level(this.settings.difficulty);
+    // build the ability loadout so the level can spawn ability-gated bonus coins
+    const loadout = { doubleJump: false, highJump: false, hover: false };
+    if (typeof Profiles !== 'undefined' && Profiles.current()) {
+      loadout.doubleJump = Profiles.buffActive('doubleJump');
+      const b = Profiles.equippedHatBuff();
+      loadout.highJump = b === 'highJump';
+      loadout.hover = b === 'hover';
+    }
+    this.level = new Level(this.settings.difficulty, loadout);
     this.player = new Player(this.startX, 300);
     this.cam = { x: 0, y: 0 };
     this.particles = [];
@@ -50,17 +58,32 @@ class Game {
     // apply purchased upgrades from the active profile
     this.coinMult = 1;
     this.revivesLeft = 0;
+    this.reviveStock = 0;       // single-use Extra Revive consumables available this run
+    this.coinDoublerActive = false;
     this.invuln = 0;
     this.lastSafe = { x: this.startX, y: 300 };
     if (typeof Profiles !== 'undefined' && Profiles.current()) {
-      if (Profiles.owns('speed')) this.player.speedMult = 1.5;
-      if (Profiles.owns('coins')) this.coinMult = 1.5;
-      if (Profiles.owns('doubleJump')) this.player.maxJumps = 2;
-      if (Profiles.owns('secondChance')) this.revivesLeft = 1;
+      if (Profiles.buffActive('speed')) this.player.speedMult = 1.5;
+      if (Profiles.buffActive('coins')) this.coinMult = 1.5;
+      if (Profiles.buffActive('doubleJump')) this.player.maxJumps = 2;
+      if (Profiles.buffActive('secondChance')) this.revivesLeft = 1;
+
+      // consumables: Extra Revive stock is spent only when used; Coin Doubler is spent now
+      this.reviveStock = Profiles.consumableCount('revive');
+      if (Profiles.coinDoublerArmed()) {
+        Profiles.useConsumable('coinDoubler');
+        this.coinDoublerActive = true;
+        this.coinMult *= 2;
+      }
 
       // equipped cosmetics + their buffs
       this.player.hat = Profiles.equipped('hat');
       this.player.clothes = Profiles.equipped('clothes');
+      this.player.trail = Profiles.equippedTrail();
+      // colours: body scheme + per-item recolours
+      this.player.bodyColor = Profiles.bodyColorHex();
+      this.player.hatTint = this.player.hat ? Profiles.itemColorHex('hat', this.player.hat) : null;
+      this.player.clothesTint = this.player.clothes ? Profiles.itemColorHex('clothes', this.player.clothes) : null;
       const buff = Profiles.equippedHatBuff();
       if (buff === 'highJump') this.player.jumpVel = 16.8;     // higher leap (default 14.5)
       if (buff === 'hover') this.player.canHover = true;        // hold jump in air to slow-fall
@@ -122,8 +145,13 @@ class Game {
     const res = this.level.checkInteractions(p);
     if (res.collected) {
       this.coins += Math.round(res.collected * this.coinMult);
-      this._burst(p.cx, p.cy, '#ffd23c', res.collected * 6);
+      // burst scales with the NUMBER of coins (capped), not their value
+      const n = Math.min(40, (res.count || 1) * 6);
+      const burstColor = res.bonusKind === 'risky' ? '#ff4dd2'
+        : res.bonusKind === 'bonus' ? '#2ee6ff' : '#ffd23c';
+      this._burst(p.cx, p.cy, burstColor, res.bonusKind ? 36 : n);
       Audio2.sfx.coin();
+      if (res.bonusKind) Audio2.sfx.coin(); // double-chime for a special pickup
     }
 
     // run dust
@@ -139,11 +167,19 @@ class Game {
       }
     }
 
+    // equipped trail effect (premium vanity) — only while actually moving
+    const moving = Math.abs(p.vx) > 0.6 || !p.onGround;
+    if (this.player.trail && this.settings.particles && moving) {
+      this._trailTimer = (this._trailTimer || 0) + dt;
+      if (this._trailTimer >= 1.5) { this._trailTimer = 0; this._emitTrail(); }
+    }
+
     // death: fell or spike
     const fellOff = p.y > (this.level.groundY + 600);
     if ((res.dead || fellOff) && this.invuln <= 0) {
       if (this.revivesLeft > 0) { this.revivesLeft--; this._revive(); }
       else if (this.player.hatReviveAvailable) { this.player.hatReviveAvailable = false; this._revive(); } // golden cowboy hat turns brown
+      else if (this.reviveStock > 0) { this.reviveStock--; Profiles.useConsumable('revive'); this._revive(); } // spend an Extra Revive
       else { this._die(); return; }
     }
 
@@ -176,6 +212,24 @@ class Game {
       Profiles.addCoins(this.coins);
     }
     if (this.onDeath) this.onDeath(this.maxDist, this.coins);
+  }
+
+  _emitTrail() {
+    const p = this.player;
+    const id = p.trail;
+    const back = -(p.dir || 1);
+    let c, g = 0.04, r = 2.5 + Math.random() * 2.5, life = 22 + Math.random() * 10;
+    if (id === 'rainbow') { c = `hsl(${Math.floor(this.time * 0.18) % 360}, 90%, 62%)`; }
+    else if (id === 'flame') { c = Math.random() < 0.5 ? '#ff7a1a' : '#ffd23c'; g = -0.04; }
+    else if (id === 'bubble') { c = '#9fdcff'; g = -0.06; r = 2 + Math.random() * 3; }
+    else if (id === 'shadow') { c = '#7a4dff'; g = 0.02; }
+    else { c = '#2ee6ff'; } // spark
+    this.particles.push({
+      x: p.cx + back * 6 + (Math.random() - 0.5) * 6,
+      y: p.cy + 4 + (Math.random() - 0.5) * 8,
+      vx: back * (0.4 + Math.random() * 0.8), vy: -0.3 + Math.random() * -0.8,
+      life, max: life, r, c, g,
+    });
   }
 
   _burst(x, y, color, n) {

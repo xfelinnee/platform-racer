@@ -36,11 +36,41 @@ const Profiles = (() => {
 
   // Clothing — purely cosmetic, no buffs.
   const CLOTHES = [
-    { id: 'cowboy',       name: 'Cowboy Clothes', price: 200, desc: 'Yeehaw. Cosmetic only.' },
-    { id: 'suit',         name: 'Suit & Tie',     price: 200, desc: 'Sharp dresser. Cosmetic only.' },
-    { id: 'formalDress',  name: 'Formal Dress',   price: 250, desc: 'Elegant night out. Cosmetic only.' },
-    { id: 'weddingDress', name: 'Wedding Dress',  price: 300, desc: 'Here comes the racer. Cosmetic only.' },
-    { id: 'street',       name: 'Street Clothes', price: 150, desc: 'Casual and comfy. Cosmetic only.' },
+    { id: 'cowboy',       name: 'Cowboy Clothes', price: 200, desc: 'Vest, bandana & blue jeans. Cosmetic only.' },
+    { id: 'suit',         name: 'Suit & Tie',     price: 200, desc: 'Jacket, tie & trousers. Cosmetic only.' },
+    { id: 'formalDress',  name: 'Formal Dress',   price: 250, desc: 'Full-length evening gown. Cosmetic only.' },
+    { id: 'weddingDress', name: 'Wedding Dress',  price: 300, desc: 'Flowing gown & veil. Cosmetic only.' },
+    { id: 'street',       name: 'Street Clothes', price: 150, desc: 'Hoodie & joggers. Cosmetic only.' },
+  ];
+
+  // Colour palette — unlock once, reuse anywhere (body, clothes, hats).
+  const COLORS = [
+    { id: 'cyan',    name: 'Cyan',    hex: '#2ee6ff', price: 0 },
+    { id: 'magenta', name: 'Magenta', hex: '#ff4dd2', price: 150 },
+    { id: 'lime',    name: 'Lime',    hex: '#8dff3c', price: 150 },
+    { id: 'gold',    name: 'Gold',    hex: '#ffd23c', price: 200 },
+    { id: 'crimson', name: 'Crimson', hex: '#ff4d4d', price: 150 },
+    { id: 'violet',  name: 'Violet',  hex: '#a96cff', price: 150 },
+    { id: 'orange',  name: 'Orange',  hex: '#ff8a3c', price: 150 },
+    { id: 'mint',    name: 'Mint',    hex: '#3cffb0', price: 150 },
+    { id: 'white',   name: 'White',   hex: '#eef3ff', price: 250 },
+    { id: 'onyx',    name: 'Onyx',    hex: '#3a4256', price: 200 },
+  ];
+  function colorHex(id) { const c = COLORS.find(c => c.id === id); return c ? c.hex : null; }
+
+  // Consumables — single-use boosters. Pricey on purpose (recurring gold sink).
+  const CONSUMABLES = [
+    { id: 'revive',      name: 'Extra Revive', price: 600,  desc: 'Carry a spare life. Auto-used on death when you have no other revive. Stacks.' },
+    { id: 'coinDoubler', name: 'Coin Doubler', price: 1000, desc: 'Doubles every coin for one run. Arm it, then it is spent when the run begins.' },
+  ];
+
+  // Premium vanity trail effects (no gameplay impact).
+  const TRAILS = [
+    { id: 'spark',   name: 'Spark Trail',   price: 1500, desc: 'Cyan sparks in your wake.',  color: '#2ee6ff' },
+    { id: 'bubble',  name: 'Bubble Trail',  price: 1800, desc: 'Floaty rising bubbles.',     color: '#9fdcff' },
+    { id: 'shadow',  name: 'Shadow Trail',  price: 2200, desc: 'Violet afterimages.',        color: '#7a4dff' },
+    { id: 'flame',   name: 'Flame Trail',   price: 2800, desc: 'Blazing embers behind you.', color: '#ff7a1a' },
+    { id: 'rainbow', name: 'Rainbow Trail', price: 4500, desc: 'Shifting prism of colour.',  color: 'rainbow' },
   ];
 
   function newProfile(name) {
@@ -49,8 +79,18 @@ const Profiles = (() => {
       coins: 0,
       best: 0,
       owned: { speed: false, coins: false, doubleJump: false, secondChance: false },
+      buffsOff: {},                  // owned buffs the player has toggled OFF
       cosmetics: { hats: {}, clothes: {} },
       equipped: { hat: null, clothes: null },
+      colorsOwned: { cyan: true },   // unlocked palette colours
+      bodyColor: 'cyan',             // active body colour scheme
+      clothesColor: {},              // { clothesId: colorId } recolours
+      hatColor: {},                  // { hatId: colorId } recolours
+      consumables: { revive: 0, coinDoubler: 0 }, // single-use booster stock
+      coinDoublerArmed: false,       // bring a coin doubler into the next run
+      trails: {},                    // owned trail ids
+      equippedTrail: null,           // active trail id
+      stats: { runs: 0, coinsCollected: 0, playMs: 0 }, // lifetime totals
       level: 1,
       xp: 0,
       prestige: 0,
@@ -63,6 +103,19 @@ const Profiles = (() => {
     if (!p.cosmetics.hats) p.cosmetics.hats = {};
     if (!p.cosmetics.clothes) p.cosmetics.clothes = {};
     if (!p.equipped) p.equipped = { hat: null, clothes: null };
+    if (!p.colorsOwned) p.colorsOwned = { cyan: true };
+    p.colorsOwned.cyan = true; // base colour is always free
+    if (!p.bodyColor) p.bodyColor = 'cyan';
+    if (!p.clothesColor) p.clothesColor = {};
+    if (!p.hatColor) p.hatColor = {};
+    if (!p.buffsOff) p.buffsOff = {};
+    if (!p.consumables) p.consumables = { revive: 0, coinDoubler: 0 };
+    if (typeof p.consumables.revive !== 'number') p.consumables.revive = 0;
+    if (typeof p.consumables.coinDoubler !== 'number') p.consumables.coinDoubler = 0;
+    if (typeof p.coinDoublerArmed !== 'boolean') p.coinDoublerArmed = false;
+    if (!p.trails) p.trails = {};
+    if (p.equippedTrail === undefined) p.equippedTrail = null;
+    if (!p.stats) p.stats = { runs: 0, coinsCollected: 0, playMs: 0 };
     if (typeof p.level !== 'number') p.level = 1;
     if (typeof p.xp !== 'number') p.xp = 0;
     if (typeof p.prestige !== 'number') p.prestige = 0;
@@ -122,13 +175,105 @@ const Profiles = (() => {
   // ---- gameplay helpers ----
   function addCoins(n) { const p = current(); if (p) { p.coins += n; save(); } }
   function spend(n) { const p = current(); if (p && p.coins >= n) { p.coins -= n; save(); return true; } return false; }
-  function recordRun(dist) {
+  function recordRun(dist, coins = 0, playMs = 0) {
     const p = current();
     if (!p) return false;
-    if (dist > p.best) { p.best = dist; save(); return true; }
-    return false;
+    ensure(p);
+    p.stats.runs += 1;
+    p.stats.coinsCollected += Math.max(0, coins);
+    p.stats.playMs += Math.max(0, playMs);
+    let isBest = false;
+    if (dist > p.best) { p.best = dist; isBest = true; }
+    save();
+    return isBest;
   }
   function owns(id) { const p = current(); return !!(p && p.owned[id]); }
+
+  // ---- buff activation (owned buffs can be toggled off) ----
+  function buffActive(id) { const p = current(); return !!(p && p.owned[id] && !ensure(p).buffsOff[id]); }
+  function toggleBuff(id) {
+    const p = current();
+    if (!p || !p.owned[id]) return { ok: false };
+    ensure(p);
+    if (p.buffsOff[id]) delete p.buffsOff[id]; else p.buffsOff[id] = true;
+    save();
+    return { ok: true, active: !p.buffsOff[id] };
+  }
+
+  // ---- consumables (single-use boosters) ----
+  function consumableCount(id) { const p = current(); return p ? (ensure(p).consumables[id] || 0) : 0; }
+  function buyConsumable(id) {
+    const p = current();
+    if (!p) return { ok: false, error: 'No profile.' };
+    ensure(p);
+    const it = CONSUMABLES.find(c => c.id === id);
+    if (!it) return { ok: false, error: 'Unavailable.' };
+    if (p.coins < it.price) return { ok: false, error: 'Not enough coins.' };
+    p.coins -= it.price;
+    p.consumables[id] = (p.consumables[id] || 0) + 1;
+    save();
+    return { ok: true };
+  }
+  function useConsumable(id) {
+    const p = current();
+    if (!p) return false;
+    ensure(p);
+    if ((p.consumables[id] || 0) <= 0) return false;
+    p.consumables[id] -= 1;
+    save();
+    return true;
+  }
+  function coinDoublerArmed() { const p = current(); return !!(p && ensure(p).coinDoublerArmed && p.consumables.coinDoubler > 0); }
+  function setCoinDoublerArmed(v) {
+    const p = current();
+    if (!p) return;
+    ensure(p);
+    p.coinDoublerArmed = !!v;
+    save();
+  }
+
+  // ---- trails (premium vanity) ----
+  function trailCatalogue() { return TRAILS; }
+  function ownsTrail(id) { const p = current(); return !!(p && ensure(p).trails[id]); }
+  function buyTrail(id) {
+    const p = current();
+    if (!p) return { ok: false, error: 'No profile.' };
+    ensure(p);
+    const tr = TRAILS.find(t => t.id === id);
+    if (!tr) return { ok: false, error: 'Unavailable.' };
+    if (p.trails[id]) return { ok: false, error: 'Already owned.' };
+    if (p.coins < tr.price) return { ok: false, error: 'Not enough coins.' };
+    p.coins -= tr.price;
+    p.trails[id] = true;
+    save();
+    return { ok: true };
+  }
+  function equipTrail(id) {
+    const p = current();
+    if (!p) return { ok: false };
+    ensure(p);
+    if (id && !p.trails[id]) return { ok: false, error: 'Not owned.' };
+    p.equippedTrail = (p.equippedTrail === id) ? null : id;
+    save();
+    return { ok: true };
+  }
+  function equippedTrail() { const p = current(); return p ? ensure(p).equippedTrail : null; }
+  function trailColor(id) { const t = TRAILS.find(t => t.id === id); return t ? t.color : null; }
+
+  // ---- unlock progress for the profile screen ----
+  function unlockCounts() {
+    const p = current();
+    if (!p) return null;
+    ensure(p);
+    const ow = id => !!p.owned[id];
+    return {
+      hats:    { owned: HATS.filter(h => p.cosmetics.hats[h.id]).length, total: HATS.length },
+      clothes: { owned: CLOTHES.filter(c => p.cosmetics.clothes[c.id]).length, total: CLOTHES.length },
+      colors:  { owned: COLORS.filter(c => p.colorsOwned[c.id]).length, total: COLORS.length },
+      trails:  { owned: TRAILS.filter(t => p.trails[t.id]).length, total: TRAILS.length },
+      buffs:   { owned: UPGRADES.filter(u => ow (u.id)).length, total: UPGRADES.length },
+    };
+  }
 
   function buy(id) {
     const p = current();
@@ -189,6 +334,53 @@ const Profiles = (() => {
     return hat ? hat.buff : null;
   }
 
+  // ---- COLOURS (body scheme + per-item recolour) ----
+  function colorCatalogue() { return COLORS; }
+  function ownsColor(id) { const p = current(); return !!(p && ensure(p).colorsOwned[id]); }
+
+  function buyColor(id) {
+    const p = current();
+    if (!p) return { ok: false, error: 'No profile.' };
+    ensure(p);
+    const c = COLORS.find(c => c.id === id);
+    if (!c) return { ok: false, error: 'Unavailable.' };
+    if (p.colorsOwned[id]) return { ok: false, error: 'Already owned.' };
+    if (p.coins < c.price) return { ok: false, error: 'Not enough coins.' };
+    p.coins -= c.price;
+    p.colorsOwned[id] = true;
+    save();
+    return { ok: true };
+  }
+
+  function bodyColorId() { const p = current(); return p ? ensure(p).bodyColor : 'cyan'; }
+  function bodyColorHex() { return colorHex(bodyColorId()) || '#2ee6ff'; }
+  function setBodyColor(id) {
+    const p = current();
+    if (!p) return { ok: false };
+    ensure(p);
+    if (!p.colorsOwned[id]) return { ok: false, error: 'Not owned.' };
+    p.bodyColor = id;
+    save();
+    return { ok: true };
+  }
+
+  // type is 'hat' or 'clothes'
+  function itemColorMap(p, type) { return type === 'hat' ? p.hatColor : p.clothesColor; }
+  function itemColorId(type, id) { const p = current(); return p ? (itemColorMap(ensure(p), type)[id] || null) : null; }
+  function itemColorHex(type, id) { const cid = itemColorId(type, id); return cid ? colorHex(cid) : null; }
+  function setItemColor(type, id, colorId) {
+    const p = current();
+    if (!p) return { ok: false };
+    ensure(p);
+    if (colorId && !p.colorsOwned[colorId]) return { ok: false, error: 'Not owned.' };
+    const map = itemColorMap(p, type);
+    // clicking the active colour clears the recolour (back to default)
+    if (map[id] === colorId) delete map[id];
+    else if (colorId) map[id] = colorId; else delete map[id];
+    save();
+    return { ok: true };
+  }
+
   // ---- XP / leveling ----
   // Add XP, rolling over level-ups. Returns a summary for UI feedback.
   function addXp(n) {
@@ -244,10 +436,16 @@ const Profiles = (() => {
   }
 
   return {
-    UPGRADES, HATS, CLOTHES, MAX_LEVEL, MAX_PRESTIGE,
+    UPGRADES, HATS, CLOTHES, COLORS, CONSUMABLES, TRAILS, MAX_LEVEL, MAX_PRESTIGE,
     load, save, list, exists, create, remove,
     setCurrent, logout, current, addCoins, spend, recordRun, owns, buy,
+    buffActive, toggleBuff, unlockCounts,
+    consumableCount, buyConsumable, useConsumable, coinDoublerArmed, setCoinDoublerArmed,
+    trailCatalogue, ownsTrail, buyTrail, equipTrail, equippedTrail, trailColor,
     ownsCosmetic, buyCosmetic, equip, equipped, equippedHatBuff,
+    colorCatalogue, ownsColor, buyColor, colorHex,
+    bodyColorId, bodyColorHex, setBodyColor,
+    itemColorId, itemColorHex, setItemColor,
     addXp, prestige, progress,
   };
 })();

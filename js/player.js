@@ -29,6 +29,12 @@ class Player {
     this.hovering = false;
     this.hatReviveAvailable = false; // golden cowboy hat
     this.propSpin = 0;           // propeller animation
+    this.trail = null;           // equipped trail effect id
+
+    // colours
+    this.bodyColor = '#2ee6ff';  // body colour scheme (bright tone)
+    this.clothesTint = null;     // recolour override for clothes (hex) or null
+    this.hatTint = null;         // recolour override for hat (hex) or null
 
     // tuning
     this.accel = 0.9;
@@ -210,38 +216,43 @@ class Player {
     const elR = jointArm(shoulder, rArm, armLen);
     const haR = jointArm(elR, rArm + rFore, armLen);
 
+    // body colour scheme (derive mid & dark tones from the bright base)
+    const bright = this.bodyColor;
+    const mid = shade(bright, 0.62);
+    const dark = shade(bright, 0.4);
+
     // --- DRAW (back limbs first for depth) ---
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
     // back leg + arm (slightly dimmer/thinner)
-    this._limb(ctx, hip, knR, ftR, 7, '#1f8fff');
-    this._limb(ctx, shoulder, elR, haR, 6, '#1f8fff');
+    this._limb(ctx, hip, knR, ftR, 7, mid);
+    this._limb(ctx, shoulder, elR, haR, 6, mid);
 
     // torso (bold)
-    ctx.strokeStyle = '#0a3a8c';
+    ctx.strokeStyle = dark;
     ctx.lineWidth = 11;
     ctx.beginPath();
     ctx.moveTo(hip.x, hip.y);
     ctx.lineTo(shoulder.x, shoulder.y);
     ctx.stroke();
     // torso highlight
-    ctx.strokeStyle = '#2ee6ff';
+    ctx.strokeStyle = bright;
     ctx.lineWidth = 7;
     ctx.beginPath();
     ctx.moveTo(hip.x, hip.y);
     ctx.lineTo(shoulder.x, shoulder.y);
     ctx.stroke();
 
-    // equipped clothes (cosmetic overlay on the torso)
-    if (this.clothes) this._drawClothes(ctx, hip, shoulder);
-
     // front leg + arm (bold, bright)
-    this._limb(ctx, hip, knL, ftL, 9, '#2ee6ff');
-    this._limb(ctx, shoulder, elL, haL, 7, '#2ee6ff');
+    this._limb(ctx, hip, knL, ftL, 9, bright);
+    this._limb(ctx, shoulder, elL, haL, 7, bright);
+
+    // equipped clothes — drawn AFTER the limbs so trousers/skirts cover the legs & hip
+    if (this.clothes) this._drawClothes(ctx, { hip, shoulder, knL, ftL, knR, ftR, elL, haL, elR, haR });
 
     // head with neck
-    ctx.strokeStyle = '#2ee6ff';
+    ctx.strokeStyle = bright;
     ctx.lineWidth = 7;
     ctx.beginPath();
     ctx.moveTo(shoulder.x, shoulder.y);
@@ -252,10 +263,10 @@ class Player {
     const headY = neckY - headR + 1;
     ctx.beginPath();
     ctx.arc(0, headY, headR, 0, Math.PI * 2);
-    ctx.fillStyle = '#0a3a8c';
+    ctx.fillStyle = dark;
     ctx.fill();
     ctx.lineWidth = 4;
-    ctx.strokeStyle = '#2ee6ff';
+    ctx.strokeStyle = bright;
     ctx.stroke();
     // glow eye
     ctx.beginPath();
@@ -272,44 +283,61 @@ class Player {
   // ---- COSMETIC: HATS ----
   _drawHat(ctx, headY, headR) {
     const topY = headY - headR; // crown of the head
+    const tint = this.hatTint;
     ctx.save();
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     if (this.hat === 'topHat') {
+      const c = tint || '#1a1a22';
       // brim
-      ctx.fillStyle = '#15151c';
+      ctx.fillStyle = c;
       ctx.fillRect(-headR - 3, topY - 1, (headR + 3) * 2, 3);
       // stovepipe
       ctx.fillRect(-headR + 2, topY - 16, (headR - 2) * 2, 16);
       // band
-      ctx.fillStyle = '#2ee6ff';
+      ctx.fillStyle = shade(c, 1.6);
       ctx.fillRect(-headR + 2, topY - 5, (headR - 2) * 2, 3);
     } else if (this.hat === 'propHat') {
-      // little cap
-      ctx.fillStyle = '#ff3c6c';
+      const cap = tint || '#e23b3b';        // helmet/cap colour
+      const capDark = shade(cap, 0.7);
+      // rounded cap dome
+      ctx.fillStyle = cap;
       ctx.beginPath();
-      ctx.arc(0, topY + 1, headR - 1, Math.PI, 0);
+      ctx.arc(0, topY + 2, headR + 1, Math.PI, 0);
       ctx.fill();
-      ctx.fillStyle = '#ffd23c';
-      ctx.fillRect(-headR + 1, topY, (headR - 1) * 2, 2);
-      // spinning propeller
-      const stalkY = topY - 4;
-      ctx.strokeStyle = '#0a3a8c';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(0, topY + 1); ctx.lineTo(0, stalkY); ctx.stroke();
+      // panel seams
+      ctx.strokeStyle = capDark; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(0, topY + 2); ctx.lineTo(0, topY - headR + 1); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, topY + 2, (headR + 1) * 0.55, Math.PI, 0); ctx.stroke();
+      // front brim
+      ctx.fillStyle = capDark;
+      ctx.beginPath();
+      ctx.ellipse(headR * 0.55, topY + 2, headR * 0.7, 2.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // stalk + hub
+      const hubY = topY - headR - 4;
+      ctx.strokeStyle = '#2a2f3a'; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(0, topY - headR + 1); ctx.lineTo(0, hubY + 1); ctx.stroke();
+      // spinning 2-blade propeller
       ctx.save();
-      ctx.translate(0, stalkY);
+      ctx.translate(0, hubY);
       ctx.rotate(this.propSpin);
-      ctx.fillStyle = '#2ee6ff';
-      ctx.fillRect(-13, -1.5, 26, 3);
-      ctx.fillStyle = '#6fa8ff';
-      ctx.fillRect(-1.5, -13, 3, 26);
+      const blade = (col, a) => {
+        ctx.save(); ctx.rotate(a);
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.ellipse(8.5, 0, 9, 2.6, 0.35, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      };
+      // motion-blur ghost
+      ctx.globalAlpha = 0.25; blade('#9fb4d8', 0.5); blade('#9fb4d8', Math.PI + 0.5);
+      ctx.globalAlpha = 1;    blade('#3a7bd5', 0);   blade('#3a7bd5', Math.PI);
       ctx.restore();
-      ctx.beginPath(); ctx.arc(0, stalkY, 2, 0, Math.PI * 2); ctx.fillStyle = '#ffd23c'; ctx.fill();
+      // hub cap
+      ctx.beginPath(); ctx.arc(0, hubY, 2.4, 0, Math.PI * 2); ctx.fillStyle = '#ffd23c'; ctx.fill();
     } else if (this.hat === 'goldCowboy') {
       // gold while the revive is available, brown once it has been used
-      const c = this.hatReviveAvailable ? '#ffd23c' : '#7a5230';
-      const c2 = this.hatReviveAvailable ? '#b8860b' : '#5a3a22';
+      const c = this.hatReviveAvailable ? (tint || '#ffd23c') : '#7a5230';
+      const c2 = this.hatReviveAvailable ? shade(c, 0.7) : '#5a3a22';
       // wide brim
       ctx.fillStyle = c;
       ctx.beginPath();
@@ -331,58 +359,131 @@ class Player {
   }
 
   // ---- COSMETIC: CLOTHES (no buffs) ----
-  _drawClothes(ctx, hip, shoulder) {
+  // j = { hip, shoulder, knL, ftL, knR, ftR, elL, haL, elR, haR }
+  _drawClothes(ctx, j) {
+    const { hip, shoulder, knL, ftL, knR, ftR, elL, haL, elR, haR } = j;
+    const tint = this.clothesTint;
     ctx.save();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    const torso = (color, width) => {
-      ctx.strokeStyle = color; ctx.lineWidth = width;
+
+    const torso = (color, w) => {
+      ctx.strokeStyle = color; ctx.lineWidth = w;
       ctx.beginPath(); ctx.moveTo(hip.x, hip.y); ctx.lineTo(shoulder.x, shoulder.y); ctx.stroke();
     };
+    const oneLeg = (kn, ft, color, w) => {
+      ctx.strokeStyle = color; ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(hip.x, hip.y); ctx.lineTo(kn.x, kn.y); ctx.lineTo(ft.x, ft.y); ctx.stroke();
+    };
+    // trousers cover BOTH legs (back leg slightly darker for depth)
+    const pants = (color, w) => { oneLeg(knR, ftR, shade(color, 0.78), w - 1); oneLeg(knL, ftL, color, w); };
+    const oneSleeve = (el, ha, color, w) => {
+      ctx.strokeStyle = color; ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(shoulder.x, shoulder.y); ctx.lineTo(el.x, el.y); ctx.lineTo(ha.x, ha.y); ctx.stroke();
+    };
+    const sleeves = (color, w) => { oneSleeve(elR, haR, shade(color, 0.78), w - 1); oneSleeve(elL, haL, color, w); };
+    // rounded hip/pelvis piece so the waist is never bare
+    const hipPad = (color, r) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(hip.x, hip.y + 1, r, 0, Math.PI * 2); ctx.fill(); };
     const skirt = (color, halfW, toY) => {
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.moveTo(hip.x - 4, hip.y);
-      ctx.lineTo(hip.x - halfW, toY);
+      ctx.moveTo(hip.x - 5, hip.y - 2);
+      ctx.quadraticCurveTo(hip.x - halfW, (hip.y + toY) / 2, hip.x - halfW, toY);
       ctx.lineTo(hip.x + halfW, toY);
-      ctx.lineTo(hip.x + 4, hip.y);
+      ctx.quadraticCurveTo(hip.x + halfW, (hip.y + toY) / 2, hip.x + 5, hip.y - 2);
       ctx.closePath(); ctx.fill();
+      // centre fold shading
+      ctx.strokeStyle = shade(color, 0.85); ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(hip.x, hip.y); ctx.lineTo(hip.x, toY); ctx.stroke();
     };
+    const footY = Math.max(ftL.y, ftR.y); // lowest point = ground level
+
     switch (this.clothes) {
-      case 'suit':
-        torso('#1b1f2e', 12);
-        // white collar + tie
-        ctx.strokeStyle = '#e8f0ff'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(shoulder.x - 3, shoulder.y + 2); ctx.lineTo(shoulder.x + 3, shoulder.y + 2); ctx.stroke();
-        ctx.strokeStyle = '#ff3c6c'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(0, shoulder.y + 2); ctx.lineTo(0, hip.y - 4); ctx.stroke();
+      case 'suit': {
+        const c = tint || '#242c46';
+        pants(c, 9);
+        hipPad(c, 6);
+        sleeves(c, 8);
+        torso(c, 13);
+        // white shirt placket
+        ctx.strokeStyle = '#eef2ff'; ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.moveTo(0, shoulder.y + 3); ctx.lineTo(0, hip.y - 5); ctx.stroke();
+        // collar
+        ctx.strokeStyle = '#eef2ff'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(-3.5, shoulder.y + 1); ctx.lineTo(0, shoulder.y + 6); ctx.lineTo(3.5, shoulder.y + 1); ctx.stroke();
+        // tie
+        ctx.strokeStyle = '#e23b5b'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(0, shoulder.y + 6); ctx.lineTo(0, hip.y - 7); ctx.stroke();
         break;
-      case 'cowboy':
-        torso('#8a5a2b', 12);
-        // vest opening
-        ctx.strokeStyle = '#c98a4b'; ctx.lineWidth = 2;
+      }
+      case 'cowboy': {
+        const c = tint || '#9a5a2b';
+        // blue jeans + belt
+        pants('#3f5f93', 9);
+        hipPad('#3f5f93', 5);
+        ctx.strokeStyle = '#caa24a'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(hip.x - 6, hip.y); ctx.lineTo(hip.x + 6, hip.y); ctx.stroke();
+        ctx.fillStyle = '#e8c24a'; ctx.fillRect(-1.5, hip.y - 1.5, 3, 3); // buckle
+        // light shirt sleeves
+        sleeves('#dcc9a3', 7);
+        // vest
+        torso(c, 12);
+        ctx.strokeStyle = shade(c, 0.7); ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(0, shoulder.y + 1); ctx.lineTo(0, hip.y); ctx.stroke();
         // bandana
-        ctx.strokeStyle = '#ff3c6c'; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(shoulder.x - 4, shoulder.y); ctx.lineTo(shoulder.x + 4, shoulder.y); ctx.stroke();
+        ctx.strokeStyle = '#e23b4b'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(shoulder.x - 4, shoulder.y + 1); ctx.lineTo(shoulder.x + 4, shoulder.y + 1); ctx.stroke();
         break;
-      case 'street':
-        torso('#2f8f5b', 13);
-        // hoodie pocket line
-        ctx.strokeStyle = '#1d6e42'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-4, hip.y - 2); ctx.lineTo(4, hip.y - 2); ctx.stroke();
+      }
+      case 'street': {
+        const c = tint || '#2f9f5b';
+        // grey joggers
+        pants('#39414f', 9);
+        hipPad('#39414f', 5);
+        // drawstring waist
+        ctx.strokeStyle = shade('#39414f', 1.4); ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(hip.x - 5, hip.y - 1); ctx.lineTo(hip.x + 5, hip.y - 1); ctx.stroke();
+        // hoodie body + sleeves
+        sleeves(c, 8);
+        torso(c, 13);
+        // hood
+        ctx.fillStyle = shade(c, 0.8);
+        ctx.beginPath(); ctx.arc(0, shoulder.y + 1, 5, 0, Math.PI * 2); ctx.fill();
+        // kangaroo pocket
+        ctx.strokeStyle = shade(c, 0.7); ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.arc(0, hip.y - 7, 5.5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
         break;
-      case 'formalDress':
-        torso('#7a2b8a', 11);
-        skirt('#7a2b8a', 13, -4);
+      }
+      case 'formalDress': {
+        const c = tint || '#8a2bb0';
+        // full-length gown
+        skirt(c, 15, footY);
+        hipPad(c, 6);
+        torso(c, 11);
+        // shoulder straps
+        ctx.strokeStyle = shade(c, 1.2); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-3, shoulder.y + 1); ctx.lineTo(0, shoulder.y + 5); ctx.lineTo(3, shoulder.y + 1); ctx.stroke();
         break;
-      case 'weddingDress':
-        torso('#f3f3ff', 11);
-        skirt('#f3f3ff', 16, -2);
-        // veil sheen
+      }
+      case 'weddingDress': {
+        const c = tint || '#f4f4ff';
+        // flowing gown
+        skirt(c, 18, footY);
+        hipPad(c, 6);
+        torso(c, 11);
+        // bodice sheen
         ctx.strokeStyle = '#cfe0ff'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(-12, -3); ctx.lineTo(12, -3); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-4, shoulder.y + 4); ctx.lineTo(4, shoulder.y + 4); ctx.stroke();
+        // veil falling from the head
+        ctx.fillStyle = 'rgba(230,238,255,0.4)';
+        ctx.beginPath();
+        ctx.moveTo(-6, shoulder.y - 2);
+        ctx.quadraticCurveTo(-12, hip.y, -8, hip.y + 6);
+        ctx.lineTo(8, hip.y + 6);
+        ctx.quadraticCurveTo(12, hip.y, 6, shoulder.y - 2);
+        ctx.closePath(); ctx.fill();
         break;
+      }
     }
     ctx.restore();
   }
@@ -410,6 +511,17 @@ class Player {
     ctx.fill();
     ctx.restore();
   }
+}
+
+// Lighten (f>1) or darken (f<1) a #rrggbb colour, returning an rgb() string.
+function shade(hex, f) {
+  if (typeof hex !== 'string' || hex[0] !== '#') return hex;
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  if (f <= 1) { r *= f; g *= f; b *= f; }
+  else { r += (255 - r) * (f - 1); g += (255 - g) * (f - 1); b += (255 - b) * (f - 1); }
+  const c = v => Math.max(0, Math.min(255, Math.round(v)));
+  return `rgb(${c(r)},${c(g)},${c(b)})`;
 }
 
 // angle measured so 0 = straight down
