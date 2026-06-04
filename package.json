@@ -11,9 +11,9 @@
     "start": "node electron/dev.js",
     "start:plain": "electron .",
     "dist": "electron-builder",
-    "publish": "electron-builder --publish always",
-    "release:patch": "npm version patch && npm run publish",
-    "release:minor": "npm version minor && npm run publish"
+    "publish": "node scripts/release.js",
+    "release:patch": "npm version patch && node scripts/release.js",
+    "release:minor": "npm version minor && node scripts/release.js"
   },
   "devDependencies": {
     "electron": "^31.7.7",
