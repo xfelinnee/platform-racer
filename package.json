@@ -11,7 +11,9 @@
     "start": "node electron/dev.js",
     "start:plain": "electron .",
     "dist": "electron-builder",
-    "publish": "electron-builder --publish always"
+    "publish": "electron-builder --publish always",
+    "release:patch": "npm version patch && npm run publish",
+    "release:minor": "npm version minor && npm run publish"
   },
   "devDependencies": {
     "electron": "^31.7.7",
@@ -61,7 +63,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_GITHUB_USERNAME",
+        "owner": "xfelinnee",
         "repo": "platform-racer"
       }
     ]
