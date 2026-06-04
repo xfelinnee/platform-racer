@@ -520,6 +520,26 @@ input[type="range"]::-moz-range-thumb {
 .shop-item.cant .si-buy { background: rgba(120,130,160,0.3); color: rgba(255,255,255,0.5); }
 .shop-item.equipped { border-color: #ffd23c; box-shadow: 0 0 18px rgba(255,210,60,0.28) inset; }
 .shop-item.equipped .si-buy { background: rgba(255,210,60,0.22); color: #ffd23c; }
+
+/* cosmetic cards: preview thumbnail beside the text */
+.shop-item.cosmetic { flex-direction: row; align-items: stretch; gap: 14px; }
+.shop-item.cosmetic .si-preview {
+  width: 80px;
+  height: 96px;
+  flex: 0 0 80px;
+  border-radius: 10px;
+  background: radial-gradient(ellipse at 50% 35%, rgba(46,230,255,0.12), rgba(13,20,48,0.6) 70%);
+  border: 1px solid rgba(46,230,255,0.18);
+  align-self: center;
+}
+.shop-item.cosmetic .si-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.shop-item.cosmetic .si-info p { flex: 1; }
 @media (max-width: 520px) { .shop-items { grid-template-columns: 1fr; } }
 
 /* ---------- SHOP TABS ---------- */

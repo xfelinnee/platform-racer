@@ -163,10 +163,17 @@ function renderShop(tab, handlers) {
     const isEquipped = Profiles.equipped(type) === item.id;
     const canAfford = p.coins >= item.price;
     const card = document.createElement('div');
-    card.className = 'shop-item' + (isEquipped ? ' equipped' : (owned ? ' owned' : (canAfford ? '' : ' cant')));
-    card.innerHTML = `<h3></h3><p></p><button class="si-buy"></button>`;
+    card.className = 'shop-item cosmetic' + (isEquipped ? ' equipped' : (owned ? ' owned' : (canAfford ? '' : ' cant')));
+    card.innerHTML =
+      `<canvas class="si-preview" width="80" height="96"></canvas>` +
+      `<div class="si-info"><h3></h3><p></p><button class="si-buy"></button></div>`;
     card.querySelector('h3').textContent = item.name;
     card.querySelector('p').textContent = item.desc;
+
+    // live preview of the stickman wearing this item
+    const cv = card.querySelector('.si-preview');
+    drawCosmeticPreview(cv, type === 'hat' ? { hat: item.id } : { clothes: item.id });
+
     const btn = card.querySelector('.si-buy');
     if (!owned) {
       btn.innerHTML = `<span class="coin-ico"></span>${item.price}`;
@@ -177,4 +184,25 @@ function renderShop(tab, handlers) {
     }
     itemsEl.appendChild(card);
   }
+}
+
+// Render a small static stickman wearing the given cosmetic onto a canvas.
+function drawCosmeticPreview(canvas, opts) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const pl = new Player(0, 0);
+  pl.onGround = true;
+  pl.dir = 1;
+  pl.vx = 0; pl.vy = 0;
+  pl.runPhase = 0;
+  pl.squash = 1;
+  pl.hat = opts.hat || null;
+  pl.clothes = opts.clothes || null;
+  pl.hatReviveAvailable = true; // show golden cowboy hat in its gold (unused) state
+  const scale = 0.8;
+  ctx.save();
+  ctx.translate(canvas.width / 2 - pl.cx * scale, canvas.height - 6 - pl.feet * scale);
+  ctx.scale(scale, scale);
+  pl.draw(ctx);
+  ctx.restore();
 }
