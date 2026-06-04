@@ -167,27 +167,45 @@
   document.querySelector('#profile .back-btn').addEventListener('click', () => Screens.show('menu'));
 
   const resumeBtn = overlay.querySelector('[data-action="resume"]');
+  const overlayBest = document.getElementById('overlayBest');
+  const overlayStats = document.getElementById('overlayStats');
   function showOverlay(title, sub) {
     overlayTitle.textContent = title;
     overlaySub.textContent = sub || '';
+    overlayBest.className = 'overlay-best';
+    overlayBest.textContent = '';
+    overlayStats.innerHTML = '';
     // Resume only makes sense when paused, not on Game Over
     resumeBtn.style.display = (game.state === 'dead') ? 'none' : 'block';
     overlay.classList.add('active');
   }
 
+  // Build a single polished stat row for the Game Over panel.
+  function statRow(label, value, cls) {
+    return `<div class="ov-stat ${cls || ''}"><span class="ov-label">${label}</span>` +
+           `<span class="ov-val">${value}</span></div>`;
+  }
+
   game.onDeath = (dist, coins) => {
+    const doubled = game.coinDoublerActive;
     const isBest = Profiles.recordRun(dist, coins, game.time); // also persists run stats
     // award XP from the run: distance + a bonus per coin
     const xpGain = dist + coins * 2;
     const xpRes = Profiles.addXp(xpGain);
     updateChip();
-    let sub = `Distance ${dist}m  ·  +${coins} coins  ·  +${xpGain} XP`;
-    if (isBest) {
-      document.getElementById('hudBest').textContent = dist;
-      sub = `NEW BEST! ${dist}m  ·  +${coins} coins  ·  +${xpGain} XP`;
-    }
-    if (xpRes && xpRes.leveledUp) sub += `  ·  LEVEL UP → ${xpRes.level}!`;
-    setTimeout(() => showOverlay('GAME OVER', sub), 500);
+    if (isBest) document.getElementById('hudBest').textContent = dist;
+
+    setTimeout(() => {
+      showOverlay('GAME OVER', '');
+      if (isBest) { overlayBest.textContent = 'NEW BEST'; overlayBest.classList.add('show'); }
+      let rows = '';
+      rows += statRow('Distance', `${dist} <small>m</small>`);
+      rows += statRow('Coins', `<span class="coin-ico"></span>+${coins}` + (doubled ? ' <em>5\u00d7</em>' : ''), 'coins');
+      rows += statRow('XP Gained', `+${xpGain}`, 'xp');
+      if (xpRes && xpRes.leveledUp) rows += statRow('Level Up', `\u2605 ${xpRes.level}`, 'levelup');
+      if (!isBest) rows += statRow('Best', `${Profiles.current().best} <small>m</small>`, 'best');
+      overlayStats.innerHTML = rows;
+    }, 500);
   };
 
   // ---- MAIN MENU buttons ----

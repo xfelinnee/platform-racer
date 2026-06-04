@@ -61,7 +61,7 @@ const Profiles = (() => {
   // Consumables — single-use boosters. Pricey on purpose (recurring gold sink).
   const CONSUMABLES = [
     { id: 'revive',      name: 'Extra Revive', price: 600,  desc: 'Carry a spare life. Auto-used on death when you have no other revive. Stacks.' },
-    { id: 'coinDoubler', name: 'Coin Doubler', price: 1000, desc: 'Doubles every coin for one run. Arm it, then it is spent when the run begins.' },
+    { id: 'coinDoubler', name: 'Coin Booster', price: 1000, desc: '5\u00d7 every coin for one run. Arm it, then it is spent when the run begins.' },
   ];
 
   // Premium vanity trail effects (no gameplay impact).

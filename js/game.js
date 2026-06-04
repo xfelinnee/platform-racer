@@ -73,7 +73,7 @@ class Game {
       if (Profiles.coinDoublerArmed()) {
         Profiles.useConsumable('coinDoubler');
         this.coinDoublerActive = true;
-        this.coinMult *= 2;
+        this.coinMult *= 5;
       }
 
       // equipped cosmetics + their buffs

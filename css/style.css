@@ -328,8 +328,75 @@ input[type="range"]::-moz-range-thumb {
   font-size: 18px;
   letter-spacing: 1px;
   color: var(--accent);
-  min-height: 22px;
+  min-height: 0;
 }
+.overlay-sub:empty { display: none; }
+
+/* NEW BEST banner */
+.overlay-best {
+  display: none;
+  text-align: center;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  letter-spacing: 4px;
+  font-size: 17px;
+  color: #07101f;
+  background: linear-gradient(90deg, var(--accent), #ff9d3c);
+  padding: 6px 0;
+  border-radius: 8px;
+  margin: 4px 0 16px;
+  box-shadow: 0 0 22px rgba(255,210,60,0.5);
+  animation: best-pop 0.5s ease;
+}
+.overlay-best.show { display: block; }
+@keyframes best-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* Game Over stat rows */
+.overlay-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 22px;
+}
+.overlay-stats:empty { display: none; }
+.ov-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 16px;
+  background: rgba(40,55,100,0.4);
+  border: 1px solid rgba(120,75,255,0.28);
+  border-radius: 10px;
+  animation: ov-slide 0.35s ease both;
+}
+.overlay-stats .ov-stat:nth-child(2) { animation-delay: 0.06s; }
+.overlay-stats .ov-stat:nth-child(3) { animation-delay: 0.12s; }
+.overlay-stats .ov-stat:nth-child(4) { animation-delay: 0.18s; }
+@keyframes ov-slide {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.ov-label {
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.ov-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px;
+  color: #fff;
+}
+.ov-val small { font-size: 13px; opacity: 0.6; font-family: 'Rajdhani', sans-serif; }
+.ov-val em { font-style: normal; font-size: 14px; color: var(--accent); font-family: 'Rajdhani', sans-serif; font-weight: 700; }
+.ov-stat.coins .ov-val { color: var(--accent); }
+.ov-stat.xp .ov-val { color: var(--cyan); }
+.ov-stat.levelup { border-color: var(--accent); box-shadow: 0 0 14px rgba(255,210,60,0.25) inset; }
+.ov-stat.levelup .ov-val { color: var(--accent); }
 
 /* ---------- COIN ICON ---------- */
 .coin-ico {
@@ -350,6 +417,7 @@ input[type="range"]::-moz-range-thumb {
   margin-bottom: 18px;
   max-height: 320px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 .profile-row {
   display: flex;
@@ -372,6 +440,27 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 700;
   letter-spacing: 1px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.profile-row .pr-name-inner {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+.profile-row .pr-name.scroll {
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 14px), transparent 100%);
+          mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 14px), transparent 100%);
+}
+.profile-row .pr-name.scroll .pr-name-inner {
+  animation: pr-marquee 7s ease-in-out infinite;
+}
+@keyframes pr-marquee {
+  0%, 14%   { transform: translateX(0); opacity: 1; }
+  46%, 56%  { transform: translateX(calc(-1 * var(--scroll))); opacity: 1; }
+  64%       { transform: translateX(calc(-1 * var(--scroll))); opacity: 0; }
+  65%       { transform: translateX(0); opacity: 0; }
+  78%, 100% { transform: translateX(0); opacity: 1; }
 }
 .profile-row .pr-meta {
   font-size: 14px;
@@ -379,7 +468,9 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   gap: 14px;
   align-items: center;
+  flex-shrink: 0;
 }
+.profile-row .pr-time { color: rgba(232,240,255,0.55); }
 .profile-row .pr-delete {
   width: 30px; height: 30px;
   border-radius: 8px;

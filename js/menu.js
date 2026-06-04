@@ -85,11 +85,16 @@ function renderProfiles(onPick) {
   for (const p of profiles) {
     const row = document.createElement('div');
     row.className = 'profile-row';
+    const playMs = (p.stats && p.stats.playMs) || 0;
     row.innerHTML =
-      `<span class="pr-name"></span>` +
-      `<span class="pr-meta"><span><span class="coin-ico"></span>${p.coins}</span><span>BEST ${p.best}m</span></span>` +
+      `<span class="pr-name"><span class="pr-name-inner"></span></span>` +
+      `<span class="pr-meta">` +
+        `<span><span class="coin-ico"></span>${p.coins}</span>` +
+        `<span>BEST ${p.best}m</span>` +
+        `<span class="pr-time">\u23f1 ${formatPlaytime(playMs)}</span>` +
+      `</span>` +
       `<button class="pr-delete" title="Delete">&times;</button>`;
-    row.querySelector('.pr-name').textContent = p.name;
+    row.querySelector('.pr-name-inner').textContent = p.name;
 
     row.addEventListener('click', () => onPick(p.name));
     row.querySelector('.pr-delete').addEventListener('click', (e) => {
@@ -101,6 +106,19 @@ function renderProfiles(onPick) {
     });
     listEl.appendChild(row);
   }
+
+  // Enable a slow marquee on any name that is too long to fit.
+  requestAnimationFrame(() => {
+    listEl.querySelectorAll('.pr-name').forEach(nameEl => {
+      const inner = nameEl.querySelector('.pr-name-inner');
+      if (!inner) return;
+      const overflow = inner.scrollWidth - nameEl.clientWidth;
+      if (overflow > 4) {
+        nameEl.style.setProperty('--scroll', (overflow + 10) + 'px');
+        nameEl.classList.add('scroll');
+      }
+    });
+  });
 }
 
 // ---------- LEVEL / XP BAR ----------
