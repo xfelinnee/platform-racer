@@ -49,14 +49,45 @@
     renderMenuCharacter();
   }
 
+  // ---- IN-GAME CONFIRM DIALOG ----
+  const confirmScreen = document.getElementById('confirm');
+  let confirmCb = null;
+  function uiConfirm(opts, cb) {
+    document.getElementById('confirmTitle').textContent = opts.title || 'CONFIRM';
+    document.getElementById('confirmMsg').textContent = opts.message || '';
+    document.getElementById('confirmYes').textContent = opts.yes || 'Confirm';
+    document.getElementById('confirmNo').textContent = opts.no || 'Cancel';
+    confirmCb = cb;
+    confirmScreen.classList.add('active');
+  }
+  window.uiConfirm = uiConfirm; // expose for other modules (e.g. profile delete)
+  function closeConfirm(result) {
+    confirmScreen.classList.remove('active');
+    const cb = confirmCb;
+    confirmCb = null;
+    if (cb) cb(result);
+  }
+  confirmScreen.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.dataset.action === 'confirm-yes') closeConfirm(true);
+    else if (btn.dataset.action === 'confirm-no') closeConfirm(false);
+  });
+
   // Prestige button on the main menu
   document.getElementById('prestigeBtn').addEventListener('click', () => {
     const pr = Profiles.progress();
     if (!pr || !pr.canPrestige) return;
-    if (confirm('Prestige now? This resets you to Level 1 and adds a Prestige star.')) {
+    uiConfirm({
+      title: 'PRESTIGE \u2605',
+      message: 'Prestige now? This resets you to Level 1 and adds a Prestige star.',
+      yes: 'Prestige',
+      no: 'Cancel',
+    }, (ok) => {
+      if (!ok) return;
       const res = Profiles.prestige();
       if (res.ok) { Audio2.sfx.coin(); renderLevel(); }
-    }
+    });
   });
 
   // ---- LOGIN ----

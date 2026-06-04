@@ -99,9 +99,20 @@ function renderProfiles(onPick) {
     row.addEventListener('click', () => onPick(p.name));
     row.querySelector('.pr-delete').addEventListener('click', (e) => {
       e.stopPropagation();
-      if (confirm(`Delete profile "${p.name}"? This cannot be undone.`)) {
+      const onConfirm = (ok) => {
+        if (!ok) return;
         Profiles.remove(p.name);
         renderProfiles(onPick);
+      };
+      if (typeof window.uiConfirm === 'function') {
+        window.uiConfirm({
+          title: 'DELETE PROFILE',
+          message: `Delete profile "${p.name}"? This cannot be undone.`,
+          yes: 'Delete',
+          no: 'Cancel',
+        }, onConfirm);
+      } else {
+        onConfirm(confirm(`Delete profile "${p.name}"? This cannot be undone.`));
       }
     });
     listEl.appendChild(row);

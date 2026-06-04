@@ -218,6 +218,18 @@
         <button class="btn btn-quit" data-action="menu"><span class="btn-label">Main Menu</span><span class="btn-glow"></span></button>
       </div>
     </section>
+
+    <!-- IN-GAME CONFIRM DIALOG -->
+    <section id="confirm" class="screen overlay">
+      <div class="panel small confirm-box">
+        <h2 class="panel-title" id="confirmTitle">CONFIRM</h2>
+        <p class="confirm-msg" id="confirmMsg"></p>
+        <div class="confirm-actions">
+          <button class="btn" data-action="confirm-yes"><span class="btn-label" id="confirmYes">Confirm</span><span class="btn-glow"></span></button>
+          <button class="btn btn-quit" data-action="confirm-no"><span class="btn-label" id="confirmNo">Cancel</span><span class="btn-glow"></span></button>
+        </div>
+      </div>
+    </section>
   </div>
 
   <script src="js/audio.js"></script>
