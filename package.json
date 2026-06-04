@@ -1,0 +1,69 @@
+{
+  "name": "platform-racer",
+  "productName": "Platform Racer",
+  "version": "1.1.0",
+  "description": "A fast neon platformer with profiles, a coin shop, and (soon) multiplayer.",
+  "author": {
+    "name": "Max Stupin"
+  },
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node electron/dev.js",
+    "start:plain": "electron .",
+    "dist": "electron-builder",
+    "publish": "electron-builder --publish always"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "build": {
+    "appId": "com.maxstupin.platformracer",
+    "productName": "Platform Racer",
+    "files": [
+      "electron/**/*",
+      "index.html",
+      "css/**/*",
+      "js/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.games"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "platform-racer"
+      }
+    ]
+  }
+}

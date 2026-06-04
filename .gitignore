@@ -1,0 +1,22 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# Secrets & local config — NEVER commit these
+.env
+.env.*
+*.env
+secrets.json
+config.local.json
+*.pem
+*.key
+*.pfx
+*.p12
+.GH_TOKEN
+.tokens
+credentials*.json
+
+# Build/editor cruft
+.cache/
+*.local
