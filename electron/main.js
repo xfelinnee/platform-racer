@@ -46,6 +46,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: !app.isPackaged, // no devtools in released builds
     },
   });
 
@@ -55,16 +56,23 @@ function createWindow() {
   // Load the bundled game (works fully offline).
   win.loadFile(path.join(__dirname, '..', 'index.html'));
 
-  // F11 toggles fullscreen; Ctrl+Shift+I opens devtools (handy while developing).
+  // F11 toggles fullscreen. DevTools (Ctrl+Shift+I) is only available in dev
+  // builds — disabled in packaged releases so playtesters can't open it.
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown') {
       if (input.key === 'F11') {
         win.setFullScreen(!win.isFullScreen());
-      } else if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+      } else if (!app.isPackaged && input.control && input.shift && input.key.toLowerCase() === 'i') {
         win.webContents.toggleDevTools();
       }
     }
   });
+
+  // Belt-and-suspenders: block any attempt to open devtools in packaged builds
+  // (menu accelerators, programmatic calls, etc.).
+  if (app.isPackaged) {
+    win.webContents.on('devtools-opened', () => win.webContents.closeDevTools());
+  }
 
   win.on('closed', () => { win = null; });
 }
