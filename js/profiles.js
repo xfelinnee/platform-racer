@@ -3,6 +3,22 @@ const Profiles = (() => {
   const KEY = 'platformRacer_profiles';
   let store = { profiles: {}, current: null };
 
+  // Storage backend: on desktop use a real file (file:// localStorage is not
+  // reliably persisted by Electron); in the browser use localStorage.
+  const desktop = (typeof window !== 'undefined' && window.desktop && window.desktop.isDesktop)
+    ? window.desktop : null;
+
+  function readRaw() {
+    if (desktop) {
+      try { return desktop.storageLoad(); } catch (e) { return null; }
+    }
+    return localStorage.getItem(KEY);
+  }
+  function writeRaw(str) {
+    if (desktop) { try { desktop.storageSave(str); } catch (e) {} return; }
+    localStorage.setItem(KEY, str);
+  }
+
   // Shop catalogue — id, label, price, description.
   const UPGRADES = [
     { id: 'speed',        name: 'x1.5 Speed Boost',  price: 250, desc: 'Run & sprint 50% faster.' },
@@ -22,24 +38,20 @@ const Profiles = (() => {
 
   function load() {
     try {
-      const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+      const s = JSON.parse(readRaw() || 'null');
       if (s && s.profiles) store = s;
     } catch (e) {}
-    // migrate legacy single 'best' if present and no profiles yet
-    if (Object.keys(store.profiles).length === 0) {
+    // one-time migration: pull any existing localStorage data into the new backend
+    if (desktop && Object.keys(store.profiles).length === 0) {
       try {
-        const legacy = JSON.parse(localStorage.getItem('platformRacer') || '{}');
-        if (legacy.best) {
-          const p = newProfile('Player 1');
-          p.best = legacy.best;
-          store.profiles['Player 1'] = p;
-        }
+        const legacy = JSON.parse(localStorage.getItem(KEY) || 'null');
+        if (legacy && legacy.profiles) store = legacy;
       } catch (e) {}
     }
     save();
   }
 
-  function save() { localStorage.setItem(KEY, JSON.stringify(store)); }
+  function save() { writeRaw(JSON.stringify(store)); }
 
   function list() { return Object.values(store.profiles); }
   function exists(name) { return !!store.profiles[name.trim()]; }

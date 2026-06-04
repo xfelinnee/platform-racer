@@ -1,8 +1,36 @@
 // Electron main process — wraps the offline game and handles auto-updates.
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 let win = null;
+
+// ---- Persistent save file (survives updates & relaunches) ----
+// file:// localStorage is not reliably persisted in Electron, so the game's
+// save data is written to a real JSON file in the app's userData directory.
+function saveFilePath() {
+  return path.join(app.getPath('userData'), 'platform-racer-save.json');
+}
+
+function initStorage() {
+  // Synchronous load so the renderer can read it during startup.
+  ipcMain.on('storage:load', (event) => {
+    let data = null;
+    try {
+      if (fs.existsSync(saveFilePath())) data = fs.readFileSync(saveFilePath(), 'utf8');
+    } catch (e) { /* ignore */ }
+    event.returnValue = data;
+  });
+
+  // Atomic save: write to a temp file then rename, so a crash can't corrupt it.
+  ipcMain.on('storage:save', (event, data) => {
+    try {
+      const tmp = saveFilePath() + '.tmp';
+      fs.writeFileSync(tmp, data, 'utf8');
+      fs.renameSync(tmp, saveFilePath());
+    } catch (e) { /* ignore */ }
+  });
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -68,14 +96,25 @@ function initAutoUpdate() {
   }, 3000);
 }
 
-app.whenReady().then(() => {
-  createWindow();
-  initAutoUpdate();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+// Only allow one running instance so it doesn't fight over the save/cache files.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
   });
-});
+
+  app.whenReady().then(() => {
+    initStorage();
+    createWindow();
+    initAutoUpdate();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

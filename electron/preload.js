@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld('desktop', {
   onUpdateReady: (cb) => ipcRenderer.on('update-ready', cb),
   // ...and ask the app to restart & install it.
   installUpdate: () => ipcRenderer.send('install-update'),
+  // Persistent save file (survives updates/relaunches). Load is synchronous.
+  storageLoad: () => ipcRenderer.sendSync('storage:load'),
+  storageSave: (data) => ipcRenderer.send('storage:save', data),
 });
