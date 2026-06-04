@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#101a44"/>
+      <stop offset="1" stop-color="#070b18"/>
+    </linearGradient>
+    <linearGradient id="letters" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2ee6ff"/>
+      <stop offset="0.55" stop-color="#5cc8ff"/>
+      <stop offset="1" stop-color="#7a4bff"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2ee6ff"/>
+      <stop offset="1" stop-color="#7a4bff"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- App badge background -->
+  <rect x="32" y="32" width="960" height="960" rx="228" fill="url(#bg)"/>
+  <rect x="46" y="46" width="932" height="932" rx="214" fill="none" stroke="url(#edge)" stroke-width="12" opacity="0.85"/>
+
+  <!-- Speed lines -->
+  <g stroke="#2ee6ff" stroke-linecap="round" opacity="0.18">
+    <line x1="120" y1="300" x2="300" y2="300" stroke-width="22"/>
+    <line x1="120" y1="520" x2="250" y2="520" stroke-width="22"/>
+    <line x1="120" y1="740" x2="320" y2="740" stroke-width="22"/>
+  </g>
+
+  <!-- PR monogram (stroked skeleton for clean bold letterforms) -->
+  <g fill="none" stroke="url(#letters)" stroke-width="92" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <!-- P: stem + bowl -->
+    <path d="M312 720 V322 H392 A96 96 0 0 1 392 514 H312"/>
+    <!-- R: stem + bowl + leg -->
+    <path d="M556 720 V322 H636 A96 96 0 0 1 636 514 H556"/>
+    <path d="M576 506 L712 720"/>
+  </g>
+</svg>

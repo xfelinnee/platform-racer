@@ -17,7 +17,9 @@
   },
   "devDependencies": {
     "electron": "^31.7.7",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "png-to-ico": "^2.1.0",
+    "sharp": "^0.32.6"
   },
   "dependencies": {
     "electron-updater": "^6.3.9"
@@ -33,6 +35,7 @@
       "assets/**/*"
     ],
     "win": {
+      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -46,15 +49,19 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
     },
     "mac": {
+      "icon": "assets/icon.png",
       "target": [
         "dmg"
       ],
       "category": "public.app-category.games"
     },
     "linux": {
+      "icon": "assets/icon-512.png",
       "target": [
         "AppImage"
       ],
