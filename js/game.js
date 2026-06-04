@@ -262,16 +262,21 @@ class Game {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(0, h);
     const step = 140;
-    const o = -((offset) % step);
-    for (let x = o - step; x < w + step; x += step) {
-      const peak = baseY - (Math.sin(x * 0.9) * 0.5 + 0.5) * 80 - 60;
-      ctx.lineTo(x, peak);
-      ctx.lineTo(x + step / 2, baseY);
+    // Index peaks by a stable WORLD index so each keeps its shape and only
+    // slides smoothly as the camera moves (no shimmer, no snap-back).
+    const startI = Math.floor((offset - step) / step);
+    const endI = Math.ceil((offset + w + step) / step);
+    ctx.beginPath();
+    ctx.moveTo(startI * step - offset, h);
+    for (let i = startI; i <= endI; i++) {
+      const screenX = i * step - offset;
+      // height is a fixed function of the world index (baseY seeds layer variety)
+      const peak = baseY - (Math.sin(i * 0.9 + baseY) * 0.5 + 0.5) * 80 - 60;
+      ctx.lineTo(screenX, peak);
+      ctx.lineTo(screenX + step / 2, baseY);
     }
-    ctx.lineTo(w, h);
+    ctx.lineTo(endI * step - offset, h);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
