@@ -36,16 +36,26 @@ class Level {
     const x = this.nextX + gap;
     this.platforms.push({ x, y, w, h: 220 });
 
-    // coins arc over gaps / on platforms
-    if (Math.random() < 0.7) {
+    // coins: 10% chance of a "freebie" straight line at run height (no jump),
+    // otherwise the usual arc you have to jump for.
+    const coinRoll = Math.random();
+    const isFreebie = coinRoll < 0.10;
+    if (isFreebie) {
+      // collect these just by running through them
+      const n = 4 + (Math.random() * 3 | 0);
+      const cy = y - 36; // ~player torso height while standing on the platform
+      for (let i = 0; i < n; i++) {
+        this.coins.push({ x: x + (w / (n + 1)) * (i + 1), y: cy, got: false });
+      }
+    } else if (coinRoll < 0.10 + 0.7) {
       const n = 3 + (Math.random() * 3 | 0);
       const cy = y - rand(50, 120);
       for (let i = 0; i < n; i++) {
         this.coins.push({ x: x + (w / (n + 1)) * (i + 1), y: cy - Math.sin((i / (n - 1)) * Math.PI) * 30, got: false });
       }
     }
-    // occasional spikes on wide platforms
-    if (w > 180 && Math.random() < 0.4 + (this.difficulty === 'hard' ? 0.2 : 0)) {
+    // occasional spikes on wide platforms — never on a freebie row (would be a trap)
+    if (!isFreebie && w > 180 && Math.random() < 0.4 + (this.difficulty === 'hard' ? 0.2 : 0)) {
       const sx = x + w * 0.5;
       this.spikes.push({ x: sx, y: y, w: 30 });
     }
