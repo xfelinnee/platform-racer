@@ -383,8 +383,8 @@
           if (label) label.textContent = `Downloading ${data.percent}%`;
           break;
         case 'ready':
-          if (label) label.textContent = 'Restart to Update';
-          if (btn) btn.disabled = false;
+          if (label) label.textContent = 'Restarting...';
+          setTimeout(() => window.desktop.installUpdate(), 1500);
           break;
         case 'error':
           if (label) label.textContent = 'Update Failed';
