@@ -188,6 +188,9 @@ canvas#game {
 .btn-quit { border-color: rgba(255,60,108,0.5); }
 .btn-quit:hover { border-color: #ff3c6c; box-shadow: 0 8px 30px rgba(255,60,108,0.35); }
 .btn-quit .btn-glow { background: linear-gradient(90deg, #ff3c6c, var(--magenta)); }
+.btn-daily { border-color: rgba(255,210,60,0.5); }
+.btn-daily:hover { border-color: #ffd23c; box-shadow: 0 8px 30px rgba(255,210,60,0.35); }
+.btn-daily .btn-glow { background: linear-gradient(90deg, #ffd23c, #ff8a3c); }
 
 .credits {
   margin-top: 36px;
@@ -1080,3 +1083,39 @@ input[type="range"]::-moz-range-thumb {
   color: #07101f;
   background: linear-gradient(90deg, var(--cyan), #6fa8ff);
 }
+
+/* ---------- PROFILE LEADERBOARD ---------- */
+.profile-subhead {
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--cyan);
+  margin: 18px 0 8px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.profile-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(46,230,255,0.06);
+  border: 1px solid rgba(46,230,255,0.12);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 14px;
+}
+.lb-row.lb-daily {
+  border-color: rgba(255,210,60,0.35);
+  background: rgba(255,210,60,0.07);
+}
+.lb-rank { width: 28px; font-weight: 700; color: var(--cyan); }
+.lb-row.lb-daily .lb-rank { color: #ffd23c; }
+.lb-dist { flex: 1; font-weight: 700; }
+.lb-coins { display: flex; align-items: center; gap: 4px; min-width: 60px; color: #ffd23c; }
+.lb-date { font-size: 11px; opacity: 0.5; }
+.lb-empty { font-size: 13px; opacity: 0.45; padding: 8px 0; }

@@ -94,6 +94,9 @@ const Profiles = (() => {
       level: 1,
       xp: 0,
       prestige: 0,
+      runHistory: [],                // top-10 leaderboard entries [{dist,coins,date}]
+      dailyBests: {},                // { 'YYYY-MM-DD': dist } daily challenge bests
+      ghostData: null,               // position samples from the best run
     };
   }
 
@@ -119,6 +122,9 @@ const Profiles = (() => {
     if (typeof p.level !== 'number') p.level = 1;
     if (typeof p.xp !== 'number') p.xp = 0;
     if (typeof p.prestige !== 'number') p.prestige = 0;
+    if (!p.runHistory) p.runHistory = [];
+    if (!p.dailyBests) p.dailyBests = {};
+    if (p.ghostData === undefined) p.ghostData = null;
     return p;
   }
 
@@ -175,7 +181,20 @@ const Profiles = (() => {
   // ---- gameplay helpers ----
   function addCoins(n) { const p = current(); if (p) { p.coins += n; save(); } }
   function spend(n) { const p = current(); if (p && p.coins >= n) { p.coins -= n; save(); return true; } return false; }
-  function recordRun(dist, coins = 0, playMs = 0) {
+  function dailyKey() {
+    const d = new Date();
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  }
+
+  // Numeric seed derived from the UTC date string — same for every player on the same day.
+  function dailySeed() {
+    const key = dailyKey();
+    let h = 0x811c9dc5;
+    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h;
+  }
+
+  function recordRun(dist, coins = 0, playMs = 0, ghostSamples = null, isDaily = false) {
     const p = current();
     if (!p) return false;
     ensure(p);
@@ -183,9 +202,50 @@ const Profiles = (() => {
     p.stats.coinsCollected += Math.max(0, coins);
     p.stats.playMs += Math.max(0, playMs);
     let isBest = false;
-    if (dist > p.best) { p.best = dist; isBest = true; }
+    if (dist > p.best) {
+      p.best = dist;
+      isBest = true;
+      if (ghostSamples) p.ghostData = ghostSamples;
+    }
+    // update top-10 leaderboard
+    const entry = { dist, coins, date: new Date().toLocaleDateString(), daily: isDaily };
+    p.runHistory.push(entry);
+    p.runHistory.sort((a, b) => b.dist - a.dist);
+    if (p.runHistory.length > 10) p.runHistory.length = 10;
+    // daily best
+    if (isDaily) {
+      const key = dailyKey();
+      if (!p.dailyBests[key] || dist > p.dailyBests[key]) p.dailyBests[key] = dist;
+    }
     save();
     return isBest;
+  }
+
+  function getDailyBest() {
+    const p = current();
+    if (!p) return 0;
+    ensure(p);
+    return p.dailyBests[dailyKey()] || 0;
+  }
+
+  function setGhost(samples) {
+    const p = current();
+    if (!p) return;
+    p.ghostData = samples;
+    save();
+  }
+
+  function getGhost() {
+    const p = current();
+    if (!p) return null;
+    return p.ghostData || null;
+  }
+
+  function getLeaderboard() {
+    const p = current();
+    if (!p) return [];
+    ensure(p);
+    return p.runHistory.slice();
   }
   function owns(id) { const p = current(); return !!(p && p.owned[id]); }
 
@@ -447,5 +507,7 @@ const Profiles = (() => {
     bodyColorId, bodyColorHex, setBodyColor,
     itemColorId, itemColorHex, setItemColor,
     addXp, prestige, progress,
+    dailyKey, dailySeed, getDailyBest,
+    setGhost, getGhost, getLeaderboard,
   };
 })();

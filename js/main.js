@@ -29,6 +29,15 @@
     Audio2.startMusic();
   }
 
+  function startDailyChallenge() {
+    game.settings = Settings.data;
+    Screens.hideAll();
+    hud.classList.add('active');
+    Input.clear();
+    game.startDaily();
+    Audio2.startMusic();
+  }
+
   function toMenu() {
     game.state = 'idle';
     hud.classList.remove('active');
@@ -230,9 +239,10 @@
            `<span class="ov-val">${value}</span></div>`;
   }
 
-  game.onDeath = (dist, coins, penalty) => {
+  let _deathOverlayTimer = null;
+
+  game.onDeath = (dist, coins, penalty, isBest) => {
     const doubled = game.coinDoublerActive;
-    const isBest = Profiles.recordRun(dist, coins, game.time); // also persists run stats
     // award XP from the run: distance + a bonus per coin
     const xpGain = dist + coins * 2;
     const xpRes = Profiles.addXp(xpGain);
@@ -240,10 +250,16 @@
     if (isBest) document.getElementById('hudBest').textContent = dist;
     const net = coins - (penalty || 0);
 
-    setTimeout(() => {
-      showOverlay('GAME OVER', '');
+    const wasDaily = game._lastRunWasDaily;
+    _deathOverlayTimer = setTimeout(() => {
+      _deathOverlayTimer = null;
+      showOverlay(wasDaily ? 'DAILY CHALLENGE' : 'GAME OVER', '');
       if (isBest) { overlayBest.textContent = 'NEW BEST'; overlayBest.classList.add('show'); }
       let rows = '';
+      if (wasDaily) {
+        const prev = Profiles.getDailyBest();
+        rows += statRow('Daily Best', `${prev} <small>m</small>`, 'best');
+      }
       rows += statRow('Distance', `${dist} <small>m</small>`);
       rows += statRow('Coins', `<span class="coin-ico"></span>+${coins}` + (doubled ? ' <em>5\u00d7</em>' : ''), 'coins');
       if (penalty > 0) {
@@ -263,6 +279,7 @@
     if (!btn) return;
     const action = btn.dataset.action;
     if (action === 'play') startGame();
+    else if (action === 'daily') startDailyChallenge();
     else if (action === 'shop') openShop();
     else if (action === 'profile') openProfile();
     else if (action === 'customize') openCustomize();
@@ -305,11 +322,18 @@
     }
   });
 
-  // ---- ESC to pause ----
+  // ---- ESC to pause / arrow to restart after death ----
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape' || e.code === 'KeyP') {
       if (game.state === 'playing') { game.pause(); Audio2.stopMusic(); showOverlay('PAUSED', ''); }
       else if (game.state === 'paused') { overlay.classList.remove('active'); game.resume(); Audio2.startMusic(); }
+    }
+    if (game.state === 'dead' && e.code.startsWith('Arrow')) {
+      if (_deathOverlayTimer) { clearTimeout(_deathOverlayTimer); _deathOverlayTimer = null; }
+      overlay.classList.remove('active');
+      overlayBest.classList.remove('show');
+      overlayStats.innerHTML = '';
+      game._lastRunWasDaily ? startDailyChallenge() : startGame();
     }
   });
 

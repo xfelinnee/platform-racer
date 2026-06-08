@@ -56,13 +56,16 @@ class Player {
     const left = Input.held('left');
     const right = Input.held('right');
     const sprint = Input.held('run');
-    const maxSpeed = (sprint ? this.maxSprint : this.maxRun) * this.speedMult;
     const accel = this.accel * this.speedMult;
 
-    // horizontal movement
-    if (left && !right) { this.vx -= accel; this.dir = -1; }
-    else if (right && !left) { this.vx += accel; this.dir = 1; }
-    else { this.vx *= this.friction; if (Math.abs(this.vx) < 0.05) this.vx = 0; }
+    // horizontal movement — ice platforms greatly reduce traction but boost top speed
+    const onIce = this.standingOn && this.standingOn.ice;
+    const maxSpeed = (sprint ? this.maxSprint : this.maxRun) * this.speedMult * (onIce ? 1.35 : 1);
+    const effectiveFriction = onIce ? 0.988 : this.friction;
+    const effectiveAccel   = onIce ? accel * 0.3  : accel;
+    if (left && !right) { this.vx -= effectiveAccel; this.dir = -1; }
+    else if (right && !left) { this.vx += effectiveAccel; this.dir = 1; }
+    else { this.vx *= effectiveFriction; if (Math.abs(this.vx) < 0.05) this.vx = 0; }
     this.vx = Math.max(-maxSpeed, Math.min(maxSpeed, this.vx));
 
     // jump (with coyote + buffer)
@@ -98,6 +101,13 @@ class Player {
     // spin the propeller (faster while hovering)
     this.propSpin += this.hovering ? 0.9 : 0.3;
 
+    // pin to elevator before gravity so platform can't separate from player
+    const ridingElevator = this.standingOn && this.standingOn.elevator && this.vy >= 0;
+    if (ridingElevator) {
+      this.y = this.standingOn.y - this.h + 1; // +1 keeps AABB overlap so collideY re-detects
+      this.vy = 1; // tiny downward so collideY treats it as landing
+    }
+
     const wasAir = !this.onGround;
 
     // integrate + collide
@@ -107,7 +117,21 @@ class Player {
     this.y += this.vy;
     const landed = level.collideY(this);
 
-    if (wasAir && landed) {
+    // ride moving platforms
+    if (this.standingOn && this.standingOn.vx) {
+      this.x += this.standingOn.vx;
+    }
+    // conveyor belt push
+    if (this.standingOn && this.standingOn.conveyorPush) {
+      this.vx += this.standingOn.conveyorPush * 0.25;
+    }
+    // elevator vertical carry — keep pinned after collision too
+    if (this.standingOn && this.standingOn.elevator) {
+      this.y = this.standingOn.y - this.h;
+      this.vy = 0;
+    }
+
+    if (wasAir && landed && !(this.standingOn && this.standingOn.elevator)) {
       this.squash = Math.min(1.4, 1 + Math.abs(impactVy) * 0.02 + 0.25);
       this.landTimer = 12;
       if (impactVy > 3) this.justLanded = true; // only sound real falls

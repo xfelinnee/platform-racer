@@ -36,8 +36,14 @@ class Game {
     }
   }
 
+  startDaily() {
+    this._isDaily = true;
+    this.start();
+  }
+
   start() {
     this.resize();
+    if (!this._isDaily) this._isDaily = false;
     // build the ability loadout so the level can spawn ability-gated bonus coins
     const loadout = { doubleJump: false, highJump: false, hover: false };
     if (typeof Profiles !== 'undefined' && Profiles.current()) {
@@ -46,7 +52,11 @@ class Game {
       loadout.highJump = b === 'highJump';
       loadout.hover = b === 'hover';
     }
-    this.level = new Level(this.settings.difficulty, loadout);
+    // daily challenge uses a seeded deterministic level
+    const rng = this._isDaily && typeof Profiles !== 'undefined'
+      ? (function(){ const fn = seededRng(Profiles.dailySeed()); return fn; })()
+      : null;
+    this.level = new Level(this.settings.difficulty, loadout, rng);
     this.player = new Player(this.startX, 300);
     this.cam = { x: 0, y: 0 };
     this.particles = [];
@@ -121,12 +131,21 @@ class Game {
 
   _update(dt, now) {
     const p = this.player;
+    if (this.level) this.level.update(dt, this.cam);
     p.update(dt, this.level);
 
     if (this.invuln > 0) this.invuln -= dt;
 
     // remember the last safe spot for 2nd-chance revives
-    if (p.onGround) { this.lastSafe = { x: p.x, y: p.y - 4 }; }
+    if (p.onGround) {
+      const so = p.standingOn;
+      if (so && so.elevator) {
+        // use the highest point of elevator travel so respawn never clips through
+        this.lastSafe = { x: p.x, y: (so.originY - so.elevRange) - p.h - 4 };
+      } else {
+        this.lastSafe = { x: p.x, y: p.y - 4 };
+      }
+    }
 
     // movement sfx
     if (p.justJumped) Audio2.sfx.jump();
@@ -218,9 +237,12 @@ class Game {
         penalty = Math.min(Profiles.current().coins, pen);
         if (penalty > 0) Profiles.addCoins(-penalty);
       }
+      this._lastIsBest = Profiles.recordRun(this.maxDist, this.coins, this.time, null, !!this._isDaily);
     }
     this.deathPenalty = penalty;
-    if (this.onDeath) this.onDeath(this.maxDist, this.coins, penalty);
+    this._lastRunWasDaily = !!this._isDaily;
+    this._isDaily = false;
+    if (this.onDeath) this.onDeath(this.maxDist, this.coins, penalty, this._lastIsBest);
   }
 
   _emitTrail() {

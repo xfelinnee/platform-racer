@@ -548,6 +548,8 @@ function renderProfile() {
     sEl.appendChild(d);
   }
 
+  renderLeaderboard();
+
   const unlocks = [
     { label: 'Hats', c: counts.hats },
     { label: 'Clothes', c: counts.clothes },
@@ -569,6 +571,24 @@ function renderProfile() {
     d.querySelector('.unlock-fill').style.width = pct + '%';
     uEl.appendChild(d);
   }
+}
+
+function renderLeaderboard() {
+  const el = document.getElementById('profileLeaderboard');
+  if (!el) return;
+  const rows = Profiles.getLeaderboard();
+  if (!rows.length) { el.innerHTML = '<div class="lb-empty">No runs recorded yet.</div>'; return; }
+  el.innerHTML = '';
+  rows.forEach((r, i) => {
+    const d = document.createElement('div');
+    d.className = 'lb-row' + (r.daily ? ' lb-daily' : '');
+    d.innerHTML =
+      `<span class="lb-rank">#${i + 1}</span>` +
+      `<span class="lb-dist">${r.dist}<small>m</small></span>` +
+      `<span class="lb-coins"><span class="coin-ico"></span>${r.coins}</span>` +
+      `<span class="lb-date">${r.daily ? '\u2605 Daily \u00b7 ' : ''}${r.date}</span>`;
+    el.appendChild(d);
+  });
 }
 
 function formatPlaytime(ms) {
