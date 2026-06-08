@@ -88,8 +88,13 @@ function initAutoUpdate() {
     return;
   }
 
-  updater.autoDownload = false; // don't download until user clicks Update
+  updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
+
+  // Check for updates shortly after launch
+  setTimeout(() => {
+    updater.checkForUpdatesAndNotify().catch(() => {});
+  }, 3000);
 
   updater.on('checking-for-update', () => {
     if (win) win.webContents.send('update-status', { state: 'checking' });
