@@ -77,6 +77,19 @@ function createWindow() {
   win.on('closed', () => { win = null; });
 }
 
+// ---- Manual git-pull update (dev / unpackaged builds) ----
+ipcMain.handle('git-pull-update', async () => {
+  const { execSync } = require('child_process');
+  const repoDir = path.join(__dirname, '..');
+  try {
+    const output = execSync('git pull origin master', { cwd: repoDir, encoding: 'utf8', timeout: 30000 });
+    if (win) win.webContents.reloadIgnoringCache();
+    return { success: true, message: output.trim() };
+  } catch (e) {
+    return { success: false, message: e.stderr || e.message || 'Update failed' };
+  }
+});
+
 // ---- Auto-update (only in packaged builds) ----
 function initAutoUpdate() {
   if (!app.isPackaged) return; // skip during local dev

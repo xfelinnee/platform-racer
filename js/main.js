@@ -284,6 +284,7 @@
     else if (action === 'profile') openProfile();
     else if (action === 'customize') openCustomize();
     else if (action === 'settings') Screens.show('settings');
+    else if (action === 'update') updateGame();
     else if (action === 'quit') quitGame();
   });
 
@@ -336,6 +337,32 @@
       game._lastRunWasDaily ? startDailyChallenge() : startGame();
     }
   });
+
+  async function updateGame() {
+    const btn = document.querySelector('[data-action="update"]');
+    if (!window.desktop || !window.desktop.pullUpdate) {
+      if (btn) btn.querySelector('.btn-label').textContent = 'Desktop only';
+      setTimeout(() => { if (btn) btn.querySelector('.btn-label').textContent = 'Update Game'; }, 2000);
+      return;
+    }
+    if (btn) btn.querySelector('.btn-label').textContent = 'Updating...';
+    btn.disabled = true;
+    try {
+      const res = await window.desktop.pullUpdate();
+      if (res.success) {
+        if (btn) btn.querySelector('.btn-label').textContent = 'Updated!';
+      } else {
+        if (btn) btn.querySelector('.btn-label').textContent = 'Failed';
+        console.error('Update failed:', res.message);
+      }
+    } catch (e) {
+      if (btn) btn.querySelector('.btn-label').textContent = 'Error';
+      console.error('Update error:', e);
+    }
+    setTimeout(() => {
+      if (btn) { btn.querySelector('.btn-label').textContent = 'Update Game'; btn.disabled = false; }
+    }, 3000);
+  }
 
   function quitGame() {
     // In the desktop (Electron) build, window.close() cleanly quits the app.

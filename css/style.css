@@ -185,6 +185,9 @@ canvas#game {
 }
 .btn:hover .btn-glow { opacity: 0.25; }
 .btn:active { transform: translateY(0) scale(0.99); }
+.btn-update { border-color: rgba(60,255,160,0.5); }
+.btn-update:hover { border-color: #3cffa0; box-shadow: 0 8px 30px rgba(60,255,160,0.35); }
+.btn-update .btn-glow { background: linear-gradient(90deg, #3cffa0, #2ee6ff); }
 .btn-quit { border-color: rgba(255,60,108,0.5); }
 .btn-quit:hover { border-color: #ff3c6c; box-shadow: 0 8px 30px rgba(255,60,108,0.35); }
 .btn-quit .btn-glow { background: linear-gradient(90deg, #ff3c6c, var(--magenta)); }
