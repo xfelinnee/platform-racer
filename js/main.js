@@ -338,30 +338,61 @@
     }
   });
 
+  let _updateState = 'idle'; // idle, checking, available, downloading, ready
   async function updateGame() {
     const btn = document.querySelector('[data-action="update"]');
-    if (!window.desktop || !window.desktop.pullUpdate) {
-      if (btn) btn.querySelector('.btn-label').textContent = 'Desktop only';
-      setTimeout(() => { if (btn) btn.querySelector('.btn-label').textContent = 'Update Game'; }, 2000);
+    const label = btn && btn.querySelector('.btn-label');
+    if (!window.desktop || !window.desktop.checkForUpdate) {
+      if (label) label.textContent = 'Desktop only';
+      setTimeout(() => { if (label) label.textContent = 'Update Game'; }, 2000);
       return;
     }
-    if (btn) btn.querySelector('.btn-label').textContent = 'Updating...';
-    btn.disabled = true;
-    try {
-      const res = await window.desktop.pullUpdate();
-      if (res.success) {
-        if (btn) btn.querySelector('.btn-label').textContent = 'Updated!';
-      } else {
-        if (btn) btn.querySelector('.btn-label').textContent = 'Failed';
-        console.error('Update failed:', res.message);
-      }
-    } catch (e) {
-      if (btn) btn.querySelector('.btn-label').textContent = 'Error';
-      console.error('Update error:', e);
+    if (_updateState === 'ready') {
+      window.desktop.installUpdate();
+      return;
     }
-    setTimeout(() => {
-      if (btn) { btn.querySelector('.btn-label').textContent = 'Update Game'; btn.disabled = false; }
-    }, 3000);
+    if (_updateState === 'downloading') return;
+    if (label) label.textContent = 'Checking...';
+    btn.disabled = true;
+    const res = await window.desktop.checkForUpdate();
+    if (res.state === 'error') {
+      if (label) label.textContent = 'Error';
+      setTimeout(() => { if (label) label.textContent = 'Update Game'; btn.disabled = false; }, 3000);
+    }
+  }
+
+  if (window.desktop && window.desktop.onUpdateStatus) {
+    window.desktop.onUpdateStatus((data) => {
+      const btn = document.querySelector('[data-action="update"]');
+      const label = btn && btn.querySelector('.btn-label');
+      _updateState = data.state;
+      switch (data.state) {
+        case 'checking':
+          if (label) label.textContent = 'Checking...';
+          break;
+        case 'available':
+          if (label) label.textContent = 'Downloading...';
+          if (btn) btn.disabled = true;
+          window.desktop.downloadUpdate();
+          break;
+        case 'up-to-date':
+          if (label) label.textContent = 'Up to date!';
+          setTimeout(() => { if (label) label.textContent = 'Update Game'; if (btn) btn.disabled = false; _updateState = 'idle'; }, 3000);
+          break;
+        case 'downloading':
+          if (label) label.textContent = `Downloading ${data.percent}%`;
+          break;
+        case 'ready':
+          if (label) label.textContent = 'Restart to Update';
+          if (btn) btn.disabled = false;
+          break;
+        case 'error':
+          if (label) label.textContent = 'Update Failed';
+          console.error('Update error:', data.message);
+          setTimeout(() => { if (label) label.textContent = 'Update Game'; if (btn) btn.disabled = false; _updateState = 'idle'; }, 3000);
+          break;
+      }
+    });
   }
 
   function quitGame() {
@@ -376,17 +407,6 @@
       '<p style="color:#e8f0ff;letter-spacing:2px;font-family:Rajdhani">You can close this tab now.</p>' +
       '<button onclick="location.reload()" style="margin-top:10px;padding:12px 26px;border-radius:10px;border:2px solid #2ee6ff;background:transparent;color:#2ee6ff;font-family:Rajdhani;font-size:18px;font-weight:700;letter-spacing:2px;cursor:pointer">Play Again</button>' +
       '</div>';
-  }
-
-  // ---- DESKTOP AUTO-UPDATE TOAST ----
-  if (window.desktop && window.desktop.isDesktop) {
-    window.desktop.onUpdateReady(() => {
-      const toast = document.createElement('div');
-      toast.className = 'update-toast';
-      toast.innerHTML = '<span>A new version is ready.</span><button id="updateNow">Restart &amp; Update</button>';
-      document.body.appendChild(toast);
-      document.getElementById('updateNow').addEventListener('click', () => window.desktop.installUpdate());
-    });
   }
 
   // ---- BOOT ----

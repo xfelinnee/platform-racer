@@ -53,13 +53,8 @@ function createWindow() {
   // Remove the default application menu (File/Edit/etc.) for a clean game window.
   Menu.setApplicationMenu(null);
 
-  // Load from updated source if available, otherwise bundled game.
-  const updatedIndex = path.join(app.getPath('userData'), 'game-source', 'index.html');
-  if (app.isPackaged && fs.existsSync(updatedIndex)) {
-    win.loadFile(updatedIndex);
-  } else {
-    win.loadFile(path.join(__dirname, '..', 'index.html'));
-  }
+  // Load the bundled game (works fully offline).
+  win.loadFile(path.join(__dirname, '..', 'index.html'));
 
   // F11 toggles fullscreen. DevTools (Ctrl+Shift+I) is only available in dev
   // builds — disabled in packaged releases so playtesters can't open it.
@@ -82,66 +77,68 @@ function createWindow() {
   win.on('closed', () => { win = null; });
 }
 
-// ---- Manual git-pull update ----
-ipcMain.handle('git-pull-update', async () => {
-  const { execSync } = require('child_process');
-  const repoUrl = 'https://github.com/xfelinnee/platform-racer.git';
+// ---- Auto-update via electron-updater ----
+let updater = null;
 
-  // In dev mode, use the project directory. In packaged mode, use userData.
-  let repoDir;
-  if (!app.isPackaged) {
-    repoDir = path.join(__dirname, '..');
-  } else {
-    repoDir = path.join(app.getPath('userData'), 'game-source');
+function initAutoUpdate() {
+  if (!app.isPackaged) return;
+  try {
+    ({ autoUpdater: updater } = require('electron-updater'));
+  } catch (e) {
+    return;
   }
 
-  try {
-    // If game-source doesn't exist yet (first update in packaged mode), clone it
-    if (app.isPackaged && !fs.existsSync(path.join(repoDir, '.git'))) {
-      fs.mkdirSync(repoDir, { recursive: true });
-      execSync(`git clone ${repoUrl} "${repoDir}"`, { encoding: 'utf8', timeout: 60000 });
-    } else {
-      execSync('git pull origin master', { cwd: repoDir, encoding: 'utf8', timeout: 30000 });
-    }
+  updater.autoDownload = false; // don't download until user clicks Update
+  updater.autoInstallOnAppQuit = true;
 
-    // In packaged mode, load from the pulled source
-    if (app.isPackaged && win) {
-      win.loadFile(path.join(repoDir, 'index.html'));
-    } else if (win) {
-      win.webContents.reloadIgnoringCache();
-    }
-    return { success: true, message: 'Updated successfully' };
+  updater.on('checking-for-update', () => {
+    if (win) win.webContents.send('update-status', { state: 'checking' });
+  });
+  updater.on('update-available', (info) => {
+    if (win) win.webContents.send('update-status', { state: 'available', version: info.version });
+  });
+  updater.on('update-not-available', () => {
+    if (win) win.webContents.send('update-status', { state: 'up-to-date' });
+  });
+  updater.on('download-progress', (prog) => {
+    if (win) win.webContents.send('update-status', { state: 'downloading', percent: Math.round(prog.percent) });
+  });
+  updater.on('update-downloaded', () => {
+    if (win) win.webContents.send('update-status', { state: 'ready' });
+  });
+  updater.on('error', (err) => {
+    const msg = err == null ? 'Unknown error' : (err.message || err.toString());
+    console.error('Auto-update error:', msg);
+    if (win) win.webContents.send('update-status', { state: 'error', message: msg });
+  });
+}
+
+// Renderer asks to check for updates
+ipcMain.handle('check-for-update', async () => {
+  if (!updater) return { state: 'not-available', message: 'Desktop only' };
+  try {
+    const result = await updater.checkForUpdates();
+    return { state: 'ok' };
   } catch (e) {
-    return { success: false, message: e.stderr || e.message || 'Update failed' };
+    return { state: 'error', message: e.message || 'Check failed' };
   }
 });
 
-// ---- Auto-update (only in packaged builds) ----
-function initAutoUpdate() {
-  if (!app.isPackaged) return; // skip during local dev
-  let autoUpdater;
+// Renderer asks to download the update
+ipcMain.handle('download-update', async () => {
+  if (!updater) return { state: 'error' };
   try {
-    ({ autoUpdater } = require('electron-updater'));
+    await updater.downloadUpdate();
+    return { state: 'ok' };
   } catch (e) {
-    return; // electron-updater not installed yet
+    return { state: 'error', message: e.message || 'Download failed' };
   }
+});
 
-  autoUpdater.autoDownload = true;
-  autoUpdater.on('update-downloaded', () => {
-    if (win) win.webContents.send('update-ready');
-  });
-  autoUpdater.on('error', (err) => {
-    console.error('Auto-update error:', err == null ? 'unknown' : (err.stack || err).toString());
-  });
-
-  // Let the renderer trigger the install/restart once an update is ready.
-  ipcMain.on('install-update', () => autoUpdater.quitAndInstall());
-
-  // Check shortly after launch.
-  setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
-  }, 3000);
-}
+// Renderer asks to quit and install
+ipcMain.on('install-update', () => {
+  if (updater) updater.quitAndInstall();
+});
 
 // Only allow one running instance so it doesn't fight over the save/cache files.
 const gotLock = app.requestSingleInstanceLock();

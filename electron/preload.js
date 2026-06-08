@@ -3,12 +3,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('desktop', {
   isDesktop: true,
-  // Renderer can listen for when an update has been downloaded...
-  onUpdateReady: (cb) => ipcRenderer.on('update-ready', cb),
-  // ...and ask the app to restart & install it.
+  // Auto-update: check, download, install, and listen for status
+  checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.send('install-update'),
-  // Pull latest game files from git
-  pullUpdate: () => ipcRenderer.invoke('git-pull-update'),
+  onUpdateStatus: (cb) => ipcRenderer.on('update-status', (_e, data) => cb(data)),
   // Persistent save file (survives updates/relaunches). Load is synchronous.
   storageLoad: () => ipcRenderer.sendSync('storage:load'),
   storageSave: (data) => ipcRenderer.send('storage:save', data),
