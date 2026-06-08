@@ -20,3 +20,6 @@ credentials*.json
 # Build/editor cruft
 .cache/
 *.local
+
+# Private dev notes (keep out of the public repo)
+ROADMAP.md

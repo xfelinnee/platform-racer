@@ -2,16 +2,17 @@
 // Easy is a relaxed cruise, and Hard is a high-risk / high-reward gamble.
 const DIFFICULTY = {
   easy: {
-    gapMin: 60, gapMax: 110, dropChance: 0.22,
-    emptyChance: 0.60,      // lots of breather platforms, few coins
+    gapMin: 55, gapMax: 95, dropChance: 0.16,
+    emptyChance: 0.78,      // zen cruise — mostly plain platforms, sparse coins
     coinValue: 1,
     specialEnabled: false,  // no risky/secret/bonus coins
     bonusChance: 0,
-    spikeChance: 0.10, spikeAnywhere: false, spikeMax: 1,
+    spikeChance: 0, spikeAnywhere: false, spikeMax: 1,
     deathPenalty: 0,
-    movingChance: 0.08, crumbleChance: 0.05, sawChance: 0,
-    iceChance: 0.06, conveyorChance: 0.06, laserChance: 0,
-    elevatorChance: 0.06, turretChance: 0,
+    // no deadly traps and no crumbling — just a touch of gentle motion for variety
+    movingChance: 0.05, crumbleChance: 0, sawChance: 0,
+    iceChance: 0, conveyorChance: 0, laserChance: 0,
+    elevatorChance: 0.05, turretChance: 0,
   },
   normal: {
     gapMin: 95, gapMax: 175, dropChance: 0.40,
@@ -232,13 +233,16 @@ class Level {
         last.elevDir = rng() < 0.5 ? 1 : -1;
         this._lastLaser = false;
       } else if (hRoll < cfg.movingChance + cfg.crumbleChance + cfg.sawChance + cfg.iceChance + cfg.conveyorChance + cfg.laserChance + cfg.elevatorChance + cfg.turretChance && w > 120) {
-        // turret mounted at top of screen above this platform
+        // turret mounted above this platform, fires tracking darts downward
         this.turrets.push({
           x: x + w * 0.5,
+          y: y - 340,
           platformX: x,
           platformW: w,
           fireInterval: rrand(rng, 250, 400),
           timer: rrand(rng, 0, 100),
+          flash: 0,
+          aimAngle: Math.PI / 2,
         });
         this._lastLaser = false;
       } else {
@@ -262,6 +266,13 @@ class Level {
   _spawnSpikes(x, y, w, pattern, cfg) {
     cfg = cfg || this.cfg;
     const rng = this._rng;
+    const pl = this.platforms[this.platforms.length - 1];
+    // spikes on a moving platform ride along with it
+    const pushSpike = (sx) => {
+      const sp = { x: sx, y, w: 30 };
+      if (pl && pl.moving) { sp.platform = pl; sp.offset = sx - pl.x; }
+      this.spikes.push(sp);
+    };
     if (!cfg.spikeAnywhere && (pattern === 'line' || pattern === 'hop')) return;
     if (cfg.spikeAnywhere) {
       if (w < 110 || rng() > cfg.spikeChance) return;
@@ -271,11 +282,11 @@ class Level {
         const sx = x + rrand(rng, 28, w - 28);
         if (placed.some(px => Math.abs(px - sx) < 46)) continue;
         placed.push(sx);
-        this.spikes.push({ x: sx, y, w: 30 });
+        pushSpike(sx);
       }
     } else {
       if (w > 180 && rng() < cfg.spikeChance) {
-        this.spikes.push({ x: x + w * 0.5, y, w: 30 });
+        pushSpike(x + w * 0.5);
       }
     }
   }
@@ -324,8 +335,13 @@ class Level {
     const now = Date.now();
     for (const pl of this.platforms) {
       if (!pl.moving) continue;
+      const prevX = pl.x;
       pl.x = pl.originX + Math.sin(now * 0.001 * pl.speed + pl.phase) * pl.range;
-      pl.vx = Math.cos(now * 0.001 * pl.speed + pl.phase) * pl.range * pl.speed * 0.001;
+      pl.vx = pl.x - prevX;
+    }
+    // spikes mounted on a moving platform follow it
+    for (const s of this.spikes) {
+      if (s.platform && s.platform.moving) s.x = s.platform.x + s.offset;
     }
     for (const pl of this.platforms) {
       if (!pl.crumbling || pl.fallen) continue;
@@ -363,20 +379,26 @@ class Level {
       pl.vy = pl.elevDir * spd;
       pl.y = pl.originY + pl.elevOffset;
     }
-    // turrets fire darts
+    // turrets fire darts from their muzzle (only when near/on screen)
     for (const tu of this.turrets) {
+      if (tu.flash > 0) tu.flash -= dt;
+      const onScreen = !cam || (tu.x > cam.x - 100 && tu.x < cam.x + 1400);
+      if (!onScreen) continue;
       tu.timer += dt;
       if (tu.timer >= tu.fireInterval) {
         tu.timer = 0;
+        tu.flash = 10;
+        const a = (typeof tu.aimAngle === 'number') ? tu.aimAngle : Math.PI / 2;
         this.darts.push({
-          x: tu.x, y: cam ? cam.y - 20 : 0,
-          vx: 0, vy: 4.5,
+          x: tu.x + Math.cos(a) * 34, y: tu.y + Math.sin(a) * 34,
+          vx: Math.cos(a) * 4.5, vy: Math.sin(a) * 4.5,
           speed: 4.5,
           age: 0,
           lifetime: 300,
           dead: false,
           r: 6,
         });
+        if (typeof Audio2 !== 'undefined' && Audio2.sfx && Audio2.sfx.turret) Audio2.sfx.turret();
       }
     }
     // darts — slow tracking toward player (updated in checkInteractions where player pos is known)
@@ -399,6 +421,19 @@ class Level {
     this.lasers    = this.lasers.filter(l => l.x2 > left);
     this.turrets   = this.turrets.filter(tu => tu.x > left);
     this.darts     = this.darts.filter(d => !d.dead && d.y < 800);
+  }
+
+  // nearest currently-existing solid platform to a world x — used for safe respawns
+  // so a revive never drops the player onto a crumbled or culled platform
+  findRespawnPlatform(x) {
+    let best = null, bestDist = Infinity;
+    for (const pl of this.platforms) {
+      if (pl.fallen || pl.crumble) continue;
+      const cx = pl.x + pl.w * 0.5;
+      const d = Math.abs(cx - x);
+      if (d < bestDist) { bestDist = d; best = pl; }
+    }
+    return best;
   }
 
   collideX(p) {
@@ -495,8 +530,18 @@ class Level {
       d.vy += (ddy / dist) * 0.20;
       const spd = Math.sqrt(d.vx * d.vx + d.vy * d.vy) || 1;
       if (spd > d.speed) { d.vx = (d.vx / spd) * d.speed; d.vy = (d.vy / spd) * d.speed; }
-      // kill on contact
-      if (dist < d.r + 14) dead = true;
+      // kill on contact — circle vs player AABB so head & legs are covered
+      const nx = clamp(d.x, p.x, p.x + p.w);
+      const ny = clamp(d.y, p.y, p.y + p.h);
+      const cdx = d.x - nx, cdy = d.y - ny;
+      if (cdx * cdx + cdy * cdy < (d.r + 3) * (d.r + 3)) dead = true;
+    }
+    // turrets aim their barrel toward the player (kept pointing downward-ish)
+    for (const tu of this.turrets) {
+      let a = Math.atan2(pcy - tu.y, pcx - tu.x);
+      const lo = 0.28, hi = Math.PI - 0.28;
+      if (a < 0) a = (Math.cos(a) < 0) ? hi : lo;
+      tu.aimAngle = clamp(a, lo, hi);
     }
     return { collected, count, bonusKind, dead };
   }
@@ -722,25 +767,80 @@ class Level {
       }
     }
 
-    // turrets (top of screen)
+    // turrets — armored ceiling pod with an aiming cannon and a glowing red eye
     for (const tu of this.turrets) {
       const tx = tu.x - cam.x;
-      if (tx < -30 || tx > ctx.canvas.width + 30) continue;
-      const ty = -cam.y + 10;
+      const ty = tu.y - cam.y;
+      if (tx < -50 || tx > ctx.canvas.width + 50) continue;
+      const flashing = tu.flash > 0;
+      const aim = (typeof tu.aimAngle === 'number') ? tu.aimAngle : Math.PI / 2;
+      const recoil = flashing ? Math.min(5, tu.flash * 0.6) : 0;
+
       ctx.save();
-      // mount bracket
-      ctx.fillStyle = '#445';
-      ctx.fillRect(tx - 10, ty, 20, 14);
-      // barrel
-      ctx.fillStyle = '#667';
-      ctx.fillRect(tx - 4, ty + 14, 8, 12);
-      // muzzle glow
+      ctx.translate(tx, ty);
+
+      // ceiling mounting stem
+      ctx.fillStyle = '#262b40';
+      ctx.fillRect(-3, -40, 6, 22);
+      ctx.fillStyle = '#1a1e2c';
+      ctx.fillRect(-9, -42, 18, 5);
+
+      // rotating cannon barrel (drawn first so the housing overlaps its base)
+      ctx.save();
+      ctx.rotate(aim - Math.PI / 2);
+      ctx.translate(0, -recoil);
+      const bg = ctx.createLinearGradient(-6, 0, 6, 0);
+      bg.addColorStop(0, '#5a627d');
+      bg.addColorStop(0.5, '#3a4258');
+      bg.addColorStop(1, '#23283a');
+      ctx.fillStyle = bg;
+      ctx.fillRect(-6, 6, 12, 28);
+      // muzzle tip
+      ctx.fillStyle = '#13161f';
+      ctx.fillRect(-7, 30, 14, 7);
+      if (flashing) {
+        ctx.beginPath();
+        ctx.arc(0, 40, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffe27a';
+        ctx.shadowColor = '#ffaa33';
+        ctx.shadowBlur = 22;
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // armored housing pod (octagon)
+      const r = 17;
       ctx.beginPath();
-      ctx.arc(tx, ty + 26, 3, 0, Math.PI * 2);
-      ctx.fillStyle = '#ff4444';
-      ctx.shadowColor = '#ff4444';
-      ctx.shadowBlur = 8;
+      for (let i = 0; i < 8; i++) {
+        const a = Math.PI / 8 + i * Math.PI / 4;
+        const px = Math.cos(a) * r, py = Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      const hg = ctx.createLinearGradient(0, -r, 0, r);
+      hg.addColorStop(0, '#3b4364');
+      hg.addColorStop(1, '#181b29');
+      ctx.fillStyle = hg;
       ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#0e1119';
+      ctx.stroke();
+
+      // glowing red sensor eye (pulses; flares when firing)
+      const pulse = 0.5 + 0.5 * Math.sin(t * 0.12 + tu.x);
+      const eyeR = flashing ? 6.5 : 4 + pulse * 1.6;
+      ctx.beginPath();
+      ctx.arc(0, 0, eyeR, 0, Math.PI * 2);
+      ctx.fillStyle = flashing ? '#ff6b6b' : '#ff2a2a';
+      ctx.shadowColor = '#ff2020';
+      ctx.shadowBlur = flashing ? 22 : 10 + pulse * 8;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(-1.6, -1.6, 1.4, 0, Math.PI * 2);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,210,210,0.9)';
+      ctx.fill();
+
       ctx.restore();
     }
 

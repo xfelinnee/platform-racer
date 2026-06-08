@@ -222,6 +222,55 @@
   const resumeBtn = overlay.querySelector('[data-action="resume"]');
   const overlayBest = document.getElementById('overlayBest');
   const overlayStats = document.getElementById('overlayStats');
+
+  // ---- IN-GAME PAUSE SETTINGS (music / sfx / particles — NO difficulty mid-run) ----
+  const pauseSettings = document.getElementById('pauseSettings');
+  const pMusic = document.getElementById('pauseMusicVol');
+  const pSfx = document.getElementById('pauseSfxVol');
+  const pMusicVal = document.getElementById('pauseMusicVolVal');
+  const pSfxVal = document.getElementById('pauseSfxVolVal');
+
+  // mirror the current saved settings into the pause panel controls
+  function syncPauseSettings() {
+    const d = Settings.data;
+    pMusic.value = d.musicVol; pMusicVal.textContent = d.musicVol;
+    pSfx.value = d.sfxVol; pSfxVal.textContent = d.sfxVol;
+    document.querySelectorAll('#pauseParticles button').forEach(b =>
+      b.classList.toggle('on', b.dataset.val === (d.particles ? 'on' : 'off')));
+  }
+
+  pMusic.addEventListener('input', () => {
+    const d = Settings.data;
+    d.musicVol = +pMusic.value;
+    pMusicVal.textContent = pMusic.value;
+    Audio2.setVolumes(d.musicVol, d.sfxVol);
+    Settings.save();
+    // keep the main Settings screen controls in sync
+    const m = document.getElementById('musicVol');
+    if (m) { m.value = d.musicVol; document.getElementById('musicVolVal').textContent = d.musicVol; }
+  });
+  pSfx.addEventListener('input', () => {
+    const d = Settings.data;
+    d.sfxVol = +pSfx.value;
+    pSfxVal.textContent = pSfx.value;
+    Audio2.setVolumes(d.musicVol, d.sfxVol);
+    Settings.save();
+    const s = document.getElementById('sfxVol');
+    if (s) { s.value = d.sfxVol; document.getElementById('sfxVolVal').textContent = d.sfxVol; }
+  });
+  document.getElementById('pauseParticles').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const d = Settings.data;
+    d.particles = (b.dataset.val === 'on');
+    Settings.save();
+    game.settings = Settings.data;
+    syncPauseSettings();
+    // keep the main Settings screen toggle in sync
+    document.querySelectorAll('#particles button').forEach(x =>
+      x.classList.toggle('on', x.dataset.val === b.dataset.val));
+  });
+
   function showOverlay(title, sub) {
     overlayTitle.textContent = title;
     overlaySub.textContent = sub || '';
@@ -230,6 +279,11 @@
     overlayStats.innerHTML = '';
     // Resume only makes sense when paused, not on Game Over
     resumeBtn.style.display = (game.state === 'dead') ? 'none' : 'block';
+    // in-game settings (music/sfx/particles) only while paused, never on Game Over
+    if (pauseSettings) {
+      if (game.state === 'dead') { pauseSettings.style.display = 'none'; }
+      else { pauseSettings.style.display = ''; syncPauseSettings(); }
+    }
     overlay.classList.add('active');
   }
 

@@ -289,6 +289,21 @@ input[type="range"]::-moz-range-thumb {
 }
 .back-btn { margin: 12px auto 0; display: block; }
 
+/* In-game pause settings (compact controls inside the small pause panel) */
+.pause-settings {
+  margin: 6px 0 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(46,230,255,0.18);
+  text-align: left;
+}
+.pause-settings .setting-row {
+  grid-template-columns: 80px 1fr 34px;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.pause-settings .setting-row:last-child { margin-bottom: 0; }
+.pause-settings .setting-row label { font-size: 15px; }
+
 /* ---------- MENU CHARACTER PREVIEW ---------- */
 .menu-character {
   position: absolute;
