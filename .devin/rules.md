@@ -37,16 +37,26 @@
 
 ## Building & Releases
 
-- Build EXE with: `npx electron-builder --win portable --config.forceCodeSigning=false --config.win.signAndEditExecutable=false`
+- **Always bump version** in `package.json` AND `index.html` footer before building.
+- Build & publish EXE in one step:
+  ```
+  $env:GH_TOKEN = (gh auth token); npx electron-builder --win portable --config.forceCodeSigning=false --config.win.signAndEditExecutable=false --publish always
+  ```
+- This uploads the EXE + `latest.yml` to a GitHub draft release. Publish it with:
+  ```
+  gh release edit vX.Y.Z --draft=false --title "Platform Racer vX.Y.Z" --notes "changelog here"
+  ```
+- If a release already exists for that tag, delete it first: `gh release delete vX.Y.Z --yes --cleanup-tag`
+- The Update Game button uses `electron-updater` to check `latest.yml` on GitHub Releases, download the new EXE, and restart. No git required on player machines.
 - Always push to `master` branch (not `main`).
-- Create GitHub releases with `gh release create vX.Y.Z "dist\Platform Racer X.Y.Z.exe"`.
-- The Update Game button in the EXE pulls from `https://github.com/xfelinnee/platform-racer.git`.
+- Repo: `https://github.com/xfelinnee/platform-racer`
 
 ## Git Workflow
 
 - Commit with descriptive messages summarizing what changed.
 - Push to `origin master`.
 - Tag releases with `vX.Y.Z` format.
+- Always push code changes BEFORE building a release EXE so the bundled code is up to date.
 
 ## Player Physics (do not change without explicit request)
 
