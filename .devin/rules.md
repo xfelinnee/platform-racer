@@ -57,11 +57,21 @@
 6. Verify: `gh release view vX.Y.Z --json assets --jq ".assets[].name"` — must show Setup EXE + latest.yml + blockmap
 
 ### Auto-update flow (do not modify):
-- Boot → `checkForUpdatesAndNotify()` after 3s → auto-downloads → auto-restarts and installs
-- Update Game button is a manual backup
-- `electron-updater` reads `latest.yml` from the **Latest** GitHub release
+- `electron/main.js` has `autoDownload = true` and `checkForUpdatesAndNotify()` 3s after launch
+- `electron-updater` reads `latest.yml` from the **Latest** (non-draft, non-prerelease) GitHub release
+- `package.json` has `build.publish` pointing to `provider: github`, `owner: xfelinnee`, `repo: platform-racer` — do NOT change this
+- **Player experience on old versions (v1.1.x):** boot → auto-download in background → installs silently when player quits → next launch is the new version
+- **Player experience on v1.2.0+:** boot → auto-download → shows "Restarting..." → quits, installs, relaunches automatically
+- Update Game button in the menu is a manual backup — triggers the same check/download/install cycle
 - Repo: `https://github.com/xfelinnee/platform-racer`
 - Always push to `master` branch (not `main`)
+
+### What NOT to do:
+- Do NOT switch from NSIS to portable — this breaks the update chain permanently
+- Do NOT set `autoDownload = false` — players won't get updates
+- Do NOT remove `checkForUpdatesAndNotify()` — no boot check = no auto-update
+- Do NOT change the `build.publish` config in `package.json`
+- Do NOT publish a release as draft or prerelease — `electron-updater` skips those
 
 ## Git Workflow
 
