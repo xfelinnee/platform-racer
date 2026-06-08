@@ -37,26 +37,38 @@
 
 ## Building & Releases
 
-- **Always bump version** in `package.json` AND `index.html` footer before building.
-- Build & publish EXE in one step:
-  ```
-  $env:GH_TOKEN = (gh auth token); npx electron-builder --win portable --config.forceCodeSigning=false --config.win.signAndEditExecutable=false --publish always
-  ```
-- This uploads the EXE + `latest.yml` to a GitHub draft release. Publish it with:
-  ```
-  gh release edit vX.Y.Z --draft=false --title "Platform Racer vX.Y.Z" --notes "changelog here"
-  ```
-- If a release already exists for that tag, delete it first: `gh release delete vX.Y.Z --yes --cleanup-tag`
-- The Update Game button uses `electron-updater` to check `latest.yml` on GitHub Releases, download the new EXE, and restart. No git required on player machines.
-- Always push to `master` branch (not `main`).
+### CRITICAL RULES — never break these:
+- **ALWAYS use NSIS target** (`--win nsis`). NEVER use `--win portable`. electron-updater only supports NSIS on Windows. Portable builds break auto-update for all players.
+- **ALWAYS push code BEFORE building.** The EXE bundles whatever code is on disk at build time. If you build before pushing, the EXE will have stale code.
+- **ALWAYS bump version** in BOTH `package.json` AND `index.html` footer BEFORE building.
+- **ALWAYS verify** the release has all 3 files: `Platform-Racer-Setup-X.Y.Z.exe`, `latest.yml`, `.blockmap`.
+- **NEVER change the build target** (NSIS → portable or vice versa). This breaks the update chain for all existing players.
+- **NEVER disable autoDownload or remove checkForUpdatesAndNotify()** from `electron/main.js`. Players depend on auto-update at boot.
+
+### Release checklist:
+1. Bump version in `package.json` and `index.html` footer
+2. Commit and push to master
+3. Delete old release if same version: `gh release delete vX.Y.Z --yes --cleanup-tag`
+4. Build & publish:
+   ```
+   $env:GH_TOKEN = (gh auth token); npx electron-builder --win nsis --config.win.signAndEditExecutable=false --config.forceCodeSigning=false --publish always
+   ```
+5. Publish the draft: `gh release edit vX.Y.Z --draft=false --title "Platform Racer vX.Y.Z" --notes "changelog"`
+6. Verify: `gh release view vX.Y.Z --json assets --jq ".assets[].name"` — must show Setup EXE + latest.yml + blockmap
+
+### Auto-update flow (do not modify):
+- Boot → `checkForUpdatesAndNotify()` after 3s → auto-downloads → auto-restarts and installs
+- Update Game button is a manual backup
+- `electron-updater` reads `latest.yml` from the **Latest** GitHub release
 - Repo: `https://github.com/xfelinnee/platform-racer`
+- Always push to `master` branch (not `main`)
 
 ## Git Workflow
 
 - Commit with descriptive messages summarizing what changed.
 - Push to `origin master`.
-- Tag releases with `vX.Y.Z` format.
-- Always push code changes BEFORE building a release EXE so the bundled code is up to date.
+- Tags are created automatically by `electron-builder --publish always` (format `vX.Y.Z`).
+- **ALWAYS push code BEFORE building.** This is the #1 cause of stale releases.
 
 ## Player Physics (do not change without explicit request)
 
