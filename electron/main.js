@@ -53,8 +53,13 @@ function createWindow() {
   // Remove the default application menu (File/Edit/etc.) for a clean game window.
   Menu.setApplicationMenu(null);
 
-  // Load the bundled game (works fully offline).
-  win.loadFile(path.join(__dirname, '..', 'index.html'));
+  // Load from updated source if available, otherwise bundled game.
+  const updatedIndex = path.join(app.getPath('userData'), 'game-source', 'index.html');
+  if (app.isPackaged && fs.existsSync(updatedIndex)) {
+    win.loadFile(updatedIndex);
+  } else {
+    win.loadFile(path.join(__dirname, '..', 'index.html'));
+  }
 
   // F11 toggles fullscreen. DevTools (Ctrl+Shift+I) is only available in dev
   // builds — disabled in packaged releases so playtesters can't open it.
@@ -77,14 +82,35 @@ function createWindow() {
   win.on('closed', () => { win = null; });
 }
 
-// ---- Manual git-pull update (dev / unpackaged builds) ----
+// ---- Manual git-pull update ----
 ipcMain.handle('git-pull-update', async () => {
   const { execSync } = require('child_process');
-  const repoDir = path.join(__dirname, '..');
+  const repoUrl = 'https://github.com/xfelinnee/platform-racer.git';
+
+  // In dev mode, use the project directory. In packaged mode, use userData.
+  let repoDir;
+  if (!app.isPackaged) {
+    repoDir = path.join(__dirname, '..');
+  } else {
+    repoDir = path.join(app.getPath('userData'), 'game-source');
+  }
+
   try {
-    const output = execSync('git pull origin master', { cwd: repoDir, encoding: 'utf8', timeout: 30000 });
-    if (win) win.webContents.reloadIgnoringCache();
-    return { success: true, message: output.trim() };
+    // If game-source doesn't exist yet (first update in packaged mode), clone it
+    if (app.isPackaged && !fs.existsSync(path.join(repoDir, '.git'))) {
+      fs.mkdirSync(repoDir, { recursive: true });
+      execSync(`git clone ${repoUrl} "${repoDir}"`, { encoding: 'utf8', timeout: 60000 });
+    } else {
+      execSync('git pull origin master', { cwd: repoDir, encoding: 'utf8', timeout: 30000 });
+    }
+
+    // In packaged mode, load from the pulled source
+    if (app.isPackaged && win) {
+      win.loadFile(path.join(repoDir, 'index.html'));
+    } else if (win) {
+      win.webContents.reloadIgnoringCache();
+    }
+    return { success: true, message: 'Updated successfully' };
   } catch (e) {
     return { success: false, message: e.stderr || e.message || 'Update failed' };
   }
