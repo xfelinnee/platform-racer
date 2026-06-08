@@ -92,7 +92,7 @@
             <span class="btn-glow"></span>
           </button>
         </nav>
-        <footer class="credits">v1.2.0 &middot; Use A/D or Arrow Keys &middot; Space to Jump</footer>
+        <footer class="credits">v1.3.0 &middot; Use A/D or Arrow Keys &middot; Space to Jump</footer>
       </div>
     </section>
 
@@ -219,6 +219,25 @@
         <div class="overlay-best" id="overlayBest"></div>
         <div class="overlay-stats" id="overlayStats"></div>
         <p class="overlay-sub" id="overlaySub"></p>
+        <div class="pause-settings" id="pauseSettings">
+          <div class="setting-row">
+            <label>Music</label>
+            <input type="range" id="pauseMusicVol" min="0" max="100" value="50" />
+            <span class="val" id="pauseMusicVolVal">50</span>
+          </div>
+          <div class="setting-row">
+            <label>SFX</label>
+            <input type="range" id="pauseSfxVol" min="0" max="100" value="70" />
+            <span class="val" id="pauseSfxVolVal">70</span>
+          </div>
+          <div class="setting-row">
+            <label>Particles</label>
+            <div class="seg" id="pauseParticles">
+              <button data-val="on" class="on">On</button>
+              <button data-val="off">Off</button>
+            </div>
+          </div>
+        </div>
         <button class="btn" data-action="resume"><span class="btn-label">Resume</span><span class="btn-glow"></span></button>
         <button class="btn" data-action="restart"><span class="btn-label">Restart</span><span class="btn-glow"></span></button>
         <button class="btn btn-quit" data-action="menu"><span class="btn-label">Main Menu</span><span class="btn-glow"></span></button>

@@ -85,6 +85,10 @@ const Audio2 = (() => {
       noise({ dur: 0.5, vol: 0.25, freq: 1200 });
     },
     ui() { tone({ freq: 600, type: 'triangle', dur: 0.06, vol: 0.25 }); },
+    turret() {
+      tone({ freq: 900, slideTo: 220, type: 'sawtooth', dur: 0.12, vol: 0.16 });
+      noise({ dur: 0.06, vol: 0.1, freq: 1800 });
+    },
   };
 
   // ---- MUSIC: an evolving synth track (chords + bass + arp + drums) ----

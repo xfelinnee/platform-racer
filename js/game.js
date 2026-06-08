@@ -78,8 +78,9 @@ class Game {
       if (Profiles.buffActive('doubleJump')) this.player.maxJumps = 2;
       if (Profiles.buffActive('secondChance')) this.revivesLeft = 1;
 
-      // consumables: Extra Revive stock is spent only when used; Coin Doubler is spent now
-      this.reviveStock = Profiles.consumableCount('revive');
+      // consumables: up to 3 Extra Revives can be armed per run (spent only when used);
+      // any owned beyond 3 stay in your stash. Coin Doubler is spent now.
+      this.reviveStock = Math.min(3, Profiles.consumableCount('revive'));
       if (Profiles.coinDoublerArmed()) {
         Profiles.useConsumable('coinDoubler');
         this.coinDoublerActive = true;
@@ -136,14 +137,15 @@ class Game {
 
     if (this.invuln > 0) this.invuln -= dt;
 
-    // remember the last safe spot for 2nd-chance revives
-    if (p.onGround) {
+    // remember the last safe spot for 2nd-chance revives — but never a crumbling
+    // platform, since it won't be there to land on when we respawn
+    if (p.onGround && !(p.standingOn && p.standingOn.crumble)) {
       const so = p.standingOn;
       if (so && so.elevator) {
         // use the highest point of elevator travel so respawn never clips through
-        this.lastSafe = { x: p.x, y: (so.originY - so.elevRange) - p.h - 4 };
+        this.lastSafe = { x: p.x, y: (so.originY - so.elevRange) - p.h - 4, plat: so };
       } else {
-        this.lastSafe = { x: p.x, y: p.y - 4 };
+        this.lastSafe = { x: p.x, y: p.y - 4, plat: so };
       }
     }
 
@@ -213,8 +215,21 @@ class Game {
 
   _revive() {
     const p = this.player;
-    p.x = this.lastSafe.x;
-    p.y = this.lastSafe.y - 40;
+    let sx = this.lastSafe.x, sy = this.lastSafe.y;
+    const safePlat = this.lastSafe.plat;
+    const stillThere = safePlat && this.level &&
+      this.level.platforms.includes(safePlat) && !safePlat.fallen;
+    if (!stillThere) {
+      // the recorded safe platform is gone (crumbled or scrolled off) — land on the
+      // nearest platform that still exists so we never respawn into the void
+      const pl = this.level && this.level.findRespawnPlatform(p.x);
+      if (pl) {
+        sx = pl.x + pl.w * 0.5 - p.w * 0.5;
+        sy = pl.y - p.h - 4;
+      }
+    }
+    p.x = sx;
+    p.y = sy - 40;
     p.vx = 0; p.vy = -6;
     p.jumpsUsed = 0;
     this.invuln = 90; // ~1.5s grace
