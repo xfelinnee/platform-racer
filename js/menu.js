@@ -213,6 +213,10 @@ function renderShop(tab, handlers) {
     const isEquipped = Profiles.equipped(type) === item.id;
     const canAfford = p.coins >= item.price;
     const tintHex = Profiles.itemColorHex(type, item.id);
+    const key = `${type}:${item.id}`;
+    const mode = shopMode(key);
+    const activeSkin = Profiles.itemSkinId(type, item.id);
+    const skinPrev = (_skinPreviewKey === key) ? _skinPreviewId : null;
     const card = document.createElement('div');
     card.className = 'shop-item cosmetic' + (isEquipped ? ' equipped' : (owned ? ' owned' : (canAfford ? '' : ' cant')));
     card.innerHTML =
@@ -221,11 +225,17 @@ function renderShop(tab, handlers) {
     card.querySelector('h3').textContent = item.name;
     card.querySelector('p').textContent = item.desc;
 
-    // live preview of the stickman wearing this item (with its recolour)
+    // live preview of the stickman wearing this item (recolour or animated skin)
     const cv = card.querySelector('.si-preview');
-    drawCosmeticPreview(cv, type === 'hat'
-      ? { hat: item.id, hatTint: tintHex }
-      : { clothes: item.id, clothesTint: tintHex });
+    const prevOpts = {};
+    if (type === 'hat') {
+      prevOpts.hat = item.id; prevOpts.hatTint = tintHex;
+      prevOpts.hatSkin = (mode === 'skins') ? (skinPrev || activeSkin) : activeSkin;
+    } else {
+      prevOpts.clothes = item.id; prevOpts.clothesTint = tintHex;
+      prevOpts.clothesSkin = (mode === 'skins') ? (skinPrev || activeSkin) : activeSkin;
+    }
+    drawCosmeticPreview(cv, prevOpts);
 
     const btn = card.querySelector('.si-buy');
     if (!owned) {
@@ -236,16 +246,33 @@ function renderShop(tab, handlers) {
       btn.addEventListener('click', () => handlers.equip(type, item.id));
     }
 
-    // recolour strip (only for owned items, using unlocked palette colours)
+    // recolour / skins strip (only for owned items)
     const colorsRow = card.querySelector('.si-colors');
     if (owned) {
-      const activeId = Profiles.itemColorId(type, item.id);
-      // "default" chip clears the recolour
-      colorsRow.appendChild(makeSwatch(null, !activeId, false, () => handlers.setItemColor(type, item.id, null)));
-      for (const col of Profiles.colorCatalogue()) {
-        if (!Profiles.ownsColor(col.id)) continue;
-        colorsRow.appendChild(makeSwatch(col.hex, activeId === col.id, false,
-          () => handlers.setItemColor(type, item.id, col.id)));
+      const info = card.querySelector('.si-info');
+      info.insertBefore(makeModeToggle(mode,
+        () => { _shopMode[key] = 'colors'; resetSkinPreview(); handlers.refreshColors(); },
+        () => { _shopMode[key] = 'skins'; handlers.refreshColors(); }
+      ), colorsRow);
+
+      if (mode === 'skins') {
+        buildSkinsPicker(colorsRow, p, {
+          key, slot: type,
+          activeSkinId: activeSkin,
+          ownsSkin: (id) => Profiles.ownsSkin(id),
+          onEquip: (id) => handlers.setItemSkin(type, item.id, id),
+          onBuy: (id) => handlers.buySkin(id),
+          refresh: () => handlers.refreshColors(),
+          onPreview: () => {},
+        });
+      } else {
+        const activeId = Profiles.itemColorId(type, item.id);
+        colorsRow.appendChild(makeSwatch(null, !activeId && !activeSkin, false, () => handlers.setItemColor(type, item.id, null)));
+        for (const col of Profiles.colorCatalogue()) {
+          if (!Profiles.ownsColor(col.id)) continue;
+          colorsRow.appendChild(makeSwatch(col.hex, activeId === col.id && !activeSkin, false,
+            () => handlers.setItemColor(type, item.id, col.id)));
+        }
       }
     } else {
       colorsRow.remove();
@@ -254,27 +281,114 @@ function renderShop(tab, handlers) {
   }
 }
 
-// Colours tab: pick the active body colour + buy new palette colours.
-function renderColorsTab(p, itemsEl, handlers) {
-  const activeBody = Profiles.bodyColorId();
+// module-level preview state for the shop colours tab (id of unowned colour being previewed)
+let _shopColorPreview = null;
+// Colours|Skins view mode per card. 'body' for the body card, `${type}:${id}` for items.
+let _shopMode = {};
+function shopMode(key) { return _shopMode[key] || 'colors'; }
+function resetShopColorPreview() { _shopColorPreview = null; resetSkinPreview(); _shopMode = {}; }
 
-  // body preview card
+// A small Colours | Skins segmented toggle.
+function makeModeToggle(mode, onColors, onSkins) {
+  const wrap = document.createElement('div');
+  wrap.className = 'mode-toggle';
+  const c = document.createElement('button');
+  c.className = 'mode-btn' + (mode === 'colors' ? ' on' : '');
+  c.textContent = 'Colours';
+  const s = document.createElement('button');
+  s.className = 'mode-btn' + (mode === 'skins' ? ' on' : '');
+  s.textContent = 'Skins';
+  c.addEventListener('click', (e) => { e.stopPropagation(); onColors(); });
+  s.addEventListener('click', (e) => { e.stopPropagation(); onSkins(); });
+  wrap.appendChild(c); wrap.appendChild(s);
+  return wrap;
+}
+
+// Colours tab: pick the active body colour + preview/buy new palette colours, OR
+// switch to animated Skins.
+function renderColorsTab(p, itemsEl, handlers) {
+  const mode = shopMode('body');
+  const activeBody = Profiles.bodyColorId();
+  // if the previewed colour is now owned (or invalid), clear the preview
+  if (_shopColorPreview && Profiles.ownsColor(_shopColorPreview)) _shopColorPreview = null;
+
+  const previewCol = _shopColorPreview ? Profiles.colorCatalogue().find(c => c.id === _shopColorPreview) : null;
+  const previewHex = previewCol ? previewCol.hex : Profiles.bodyColorHex();
+  const skinPrev = (_skinPreviewKey === 'body') ? _skinPreviewId : null;
+
+  // body preview card — keeps equipped hat/clothes, shows previewed colour/skin on the body
   const card = document.createElement('div');
   card.className = 'shop-item cosmetic color-card';
   card.innerHTML =
     `<canvas class="si-preview" width="80" height="96"></canvas>` +
-    `<div class="si-info"><h3>Body Colour</h3><p>Pick a scheme for your racer. Buy new colours to use on your body, hats &amp; clothes.</p><div class="si-colors palette"></div></div>`;
-  drawCosmeticPreview(card.querySelector('.si-preview'), { body: Profiles.bodyColorHex() });
+    `<div class="si-info"><h3>Body Colour</h3><p class="cc-desc"></p><div class="si-colors palette"></div><div class="si-buy-row"></div></div>`;
+
+  const opts = equippedPreviewOpts(0.85);
+  if (mode === 'skins') {
+    // preview the previewed/equipped body skin
+    if (skinPrev) { opts.bodySkin = skinPrev; opts.body = Skins.byId(skinPrev).baseHex; }
+  } else {
+    opts.bodySkin = null;          // solid-colour preview
+    opts.body = previewHex;
+  }
+  drawCosmeticPreview(card.querySelector('.si-preview'), opts);
+
+  card.querySelector('.cc-desc').textContent = mode === 'skins'
+    ? 'Animated body materials. Tap a locked skin to preview it, then buy.'
+    : 'Pick a scheme for your racer. Tap a locked colour to preview it, then buy.';
+
+  // toggle
+  const info = card.querySelector('.si-info');
+  info.insertBefore(makeModeToggle(mode,
+    () => { _shopMode.body = 'colors'; resetSkinPreview(); handlers.refreshColors(); },
+    () => { _shopMode.body = 'skins'; _shopColorPreview = null; handlers.refreshColors(); }
+  ), info.querySelector('.cc-desc').nextSibling);
 
   const row = card.querySelector('.palette');
-  for (const col of Profiles.colorCatalogue()) {
-    const owned = Profiles.ownsColor(col.id);
-    if (owned) {
-      row.appendChild(makeSwatch(col.hex, activeBody === col.id, false, () => handlers.setBodyColor(col.id)));
-    } else {
-      row.appendChild(makeSwatch(col.hex, false, true, () => handlers.buyColor(col.id), col.price));
+
+  if (mode === 'skins') {
+    buildSkinsPicker(row, p, {
+      key: 'body', slot: 'body',
+      activeSkinId: Profiles.bodySkinId(),
+      ownsSkin: (id) => Profiles.ownsSkin(id),
+      onEquip: (id) => handlers.setBodySkin(id),
+      onBuy: (id) => handlers.buySkin(id),
+      refresh: () => handlers.refreshColors(),
+      onPreview: () => {},
+    });
+  } else {
+    for (const col of Profiles.colorCatalogue()) {
+      const owned = Profiles.ownsColor(col.id);
+      if (owned) {
+        row.appendChild(makeSwatch(col.hex, activeBody === col.id && !Profiles.bodySkinId(), false, () => {
+          _shopColorPreview = null;
+          handlers.setBodyColor(col.id);
+        }));
+      } else {
+        row.appendChild(makeSwatch(col.hex, _shopColorPreview === col.id, true, () => {
+          _shopColorPreview = (_shopColorPreview === col.id) ? null : col.id;
+          handlers.refreshColors();
+        }, col.price));
+      }
+    }
+    // buy row appears only when previewing a locked colour
+    const buyRow = card.querySelector('.si-buy-row');
+    if (previewCol) {
+      const canAfford = p.coins >= previewCol.price;
+      const buy = document.createElement('button');
+      buy.className = 'si-buy' + (canAfford ? '' : ' cant');
+      buy.innerHTML = `<span class="coin-ico"></span>Buy ${previewCol.name} \u2014 ${previewCol.price}`;
+      buy.addEventListener('click', () => {
+        const res = handlers.buyColor(previewCol.id);
+        if (res && res.ok) {
+          _shopColorPreview = null;
+          handlers.setBodyColor(previewCol.id);
+        }
+      });
+      buyRow.appendChild(buy);
     }
   }
+
   itemsEl.appendChild(card);
 }
 
@@ -374,9 +488,97 @@ function makeSwatch(hex, active, locked, onClick, price) {
   return b;
 }
 
-// Render a small static stickman wearing the given cosmetic onto a canvas.
-// opts: { hat, clothes, hatTint, clothesTint, body }
-function drawCosmeticPreview(canvas, opts) {
+// An animated swatch that renders a skin's live material via the preview ticker.
+function makeSkinSwatch(skin, active, locked, onClick) {
+  const b = document.createElement('button');
+  b.className = 'swatch skin-swatch' + (active ? ' active' : '') + (locked ? ' locked' : '');
+  b.title = skin.name;
+  const cv = document.createElement('canvas');
+  cv.width = 30; cv.height = 30; cv.className = 'skin-swatch-cv';
+  cv._render = (c, t) => { Skins.drawSwatch(skin, c.getContext('2d'), c.width, t); };
+  cv._render(cv, performance.now() / 1000);
+  _previewCanvases.add(cv); _ensurePreviewLoop();
+  b.appendChild(cv);
+  if (locked) {
+    const tag = document.createElement('span');
+    tag.className = 'swatch-price';
+    tag.textContent = skin.price;
+    b.appendChild(tag);
+  }
+  b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+  return b;
+}
+
+// Module state: which skin (if any) is being previewed, keyed by card context.
+// key = 'body' for the body card, or `${type}:${itemId}` for a cosmetic card.
+let _skinPreviewKey = null;
+let _skinPreviewId = null;
+function resetSkinPreview() { _skinPreviewKey = null; _skinPreviewId = null; }
+
+// Build a skins picker into `row`, with preview-then-buy.
+// ctx: { key, slot, activeSkinId, ownsSkin(id), onEquip(id), onBuy(id)->res, refresh(), onPreview(skinId) }
+function buildSkinsPicker(row, p, ctx) {
+  const previewing = (_skinPreviewKey === ctx.key) ? _skinPreviewId : null;
+  for (const skin of Skins.forSlot(ctx.slot)) {
+    const owned = ctx.ownsSkin(skin.id);
+    const active = ctx.activeSkinId === skin.id;
+    const isPrev = previewing === skin.id;
+    const sw = makeSkinSwatch(skin, active || isPrev, !owned, () => {
+      if (owned) {
+        resetSkinPreview();
+        ctx.onEquip(active ? null : skin.id); // toggle off if already active
+      } else {
+        _skinPreviewKey = ctx.key; _skinPreviewId = skin.id;
+        ctx.onPreview(skin.id);
+        ctx.refresh();
+      }
+    });
+    row.appendChild(sw);
+  }
+  // buy button for a previewed (locked) skin
+  if (previewing) {
+    const skin = Skins.byId(previewing);
+    if (skin && !ctx.ownsSkin(skin.id)) {
+      const buyRow = document.createElement('div');
+      buyRow.className = 'cz-row si-buy-row';
+      buyRow.style.marginTop = '8px';
+      const canAfford = p.coins >= skin.price;
+      const buy = document.createElement('button');
+      buy.className = 'si-buy' + (canAfford ? '' : ' cant');
+      buy.innerHTML = `<span class="coin-ico"></span>Buy ${skin.name} \u2014 ${skin.price}`;
+      buy.addEventListener('click', () => {
+        const res = ctx.onBuy(skin.id);
+        if (res && res.ok) {
+          resetSkinPreview();
+          ctx.onEquip(skin.id);
+        }
+      });
+      buyRow.appendChild(buy);
+      row.appendChild(buyRow);
+    }
+  }
+}
+
+// ---- animated cosmetic previews ----
+// Canvases that carry an animated skin re-render on a shared, throttled rAF loop.
+const _previewCanvases = new Set();
+let _previewRAF = null;
+function _previewTick(now) {
+  if (now - (_previewTick._last || 0) >= 33) { // ~30fps
+    _previewTick._last = now;
+    const t = now / 1000;
+    for (const cv of [..._previewCanvases]) {
+      if (!cv.isConnected) { _previewCanvases.delete(cv); continue; }
+      if (cv._render) cv._render(cv, t); else _renderCosmetic(cv, cv._opts, t);
+    }
+  }
+  _previewRAF = _previewCanvases.size ? requestAnimationFrame(_previewTick) : null;
+}
+function _ensurePreviewLoop() { if (!_previewRAF) _previewRAF = requestAnimationFrame(_previewTick); }
+
+// Render a small stickman wearing the given cosmetic onto a canvas at time t.
+// opts: { hat, clothes, hatTint, clothesTint, body, bodySkin, hatSkin, clothesSkin, scale }
+function _renderCosmetic(canvas, opts, t) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const pl = new Player(0, 0);
@@ -390,13 +592,28 @@ function drawCosmeticPreview(canvas, opts) {
   pl.clothes = opts.clothes || null;
   pl.hatTint = opts.hatTint || null;
   pl.clothesTint = opts.clothesTint || null;
+  pl.bodySkin = opts.bodySkin || null;
+  pl.hatSkin = opts.hatSkin || null;
+  pl.clothesSkin = opts.clothesSkin || null;
   pl.hatReviveAvailable = true; // show golden cowboy hat in its gold (unused) state
   const scale = opts.scale || 0.8;
   ctx.save();
   ctx.translate(canvas.width / 2 - pl.cx * scale, canvas.height - 6 - pl.feet * scale);
   ctx.scale(scale, scale);
-  pl.draw(ctx);
+  pl.draw(ctx, t);
   ctx.restore();
+}
+
+// Public entry: draws once, and registers for animation if the opts carry a skin.
+function drawCosmeticPreview(canvas, opts) {
+  canvas._opts = opts;
+  _renderCosmetic(canvas, opts, performance.now() / 1000);
+  if (opts.bodySkin || opts.hatSkin || opts.clothesSkin) {
+    _previewCanvases.add(canvas);
+    _ensurePreviewLoop();
+  } else {
+    _previewCanvases.delete(canvas);
+  }
 }
 
 // ---------- MENU CHARACTER + QUICK CUSTOMIZE ----------
@@ -408,6 +625,9 @@ function equippedPreviewOpts(scale) {
     hatTint: hat ? Profiles.itemColorHex('hat', hat) : null,
     clothesTint: clothes ? Profiles.itemColorHex('clothes', clothes) : null,
     body: Profiles.bodyColorHex(),
+    bodySkin: Profiles.bodySkinId(),
+    hatSkin: hat ? Profiles.itemSkinId('hat', hat) : null,
+    clothesSkin: clothes ? Profiles.itemSkinId('clothes', clothes) : null,
     scale,
   };
 }
@@ -582,9 +802,11 @@ function renderLeaderboard() {
   rows.forEach((r, i) => {
     const d = document.createElement('div');
     d.className = 'lb-row' + (r.daily ? ' lb-daily' : '');
+    const timeStr = r.timeMs ? formatRunTime(r.timeMs) : '\u2014';
     d.innerHTML =
       `<span class="lb-rank">#${i + 1}</span>` +
       `<span class="lb-dist">${r.dist}<small>m</small></span>` +
+      `<span class="lb-time">\u23f1 ${timeStr}</span>` +
       `<span class="lb-coins"><span class="coin-ico"></span>${r.coins}</span>` +
       `<span class="lb-date">${r.daily ? '\u2605 Daily \u00b7 ' : ''}${r.date}</span>`;
     el.appendChild(d);
@@ -599,4 +821,13 @@ function formatPlaytime(ms) {
   if (h) return `${h}h ${m}m`;
   if (m) return `${m}m ${sec}s`;
   return `${sec}s`;
+}
+
+// Duration of a single run, e.g. "1m 23s" or "8.4s".
+function formatRunTime(ms) {
+  const total = (ms || 0) / 1000;
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  if (m) return `${m}m ${Math.floor(s)}s`;
+  return `${s.toFixed(1)}s`;
 }

@@ -60,7 +60,7 @@ const Profiles = (() => {
 
   // Consumables — single-use boosters. Pricey on purpose (recurring gold sink).
   const CONSUMABLES = [
-    { id: 'revive',      name: 'Extra Revive', price: 600,  desc: 'Carry a spare life. Auto-used on death when you have no other revive. Up to 3 used per run.' },
+    { id: 'revive',      name: 'Extra Revive', price: 1500, desc: 'Carry a spare life. Auto-used on death when you have no other revive. Up to 3 used per run.' },
     { id: 'coinDoubler', name: 'Coin Booster', price: 1000, desc: '5\u00d7 every coin for one run. Arm it, then it is spent when the run begins.' },
   ];
 
@@ -86,6 +86,10 @@ const Profiles = (() => {
       bodyColor: 'cyan',             // active body colour scheme
       clothesColor: {},              // { clothesId: colorId } recolours
       hatColor: {},                  // { hatId: colorId } recolours
+      skinsOwned: {},                // unlocked animated skins
+      bodySkin: null,                // active body skin id (overrides bodyColor)
+      hatSkin: {},                   // { hatId: skinId } animated skins
+      clothesSkin: {},               // { clothesId: skinId } animated skins
       consumables: { revive: 0, coinDoubler: 0 }, // single-use booster stock
       coinDoublerArmed: false,       // bring a coin doubler into the next run
       trails: {},                    // owned trail ids
@@ -111,6 +115,10 @@ const Profiles = (() => {
     if (!p.bodyColor) p.bodyColor = 'cyan';
     if (!p.clothesColor) p.clothesColor = {};
     if (!p.hatColor) p.hatColor = {};
+    if (!p.skinsOwned) p.skinsOwned = {};
+    if (p.bodySkin === undefined) p.bodySkin = null;
+    if (!p.hatSkin) p.hatSkin = {};
+    if (!p.clothesSkin) p.clothesSkin = {};
     if (!p.buffsOff) p.buffsOff = {};
     if (!p.consumables) p.consumables = { revive: 0, coinDoubler: 0 };
     if (typeof p.consumables.revive !== 'number') p.consumables.revive = 0;
@@ -208,7 +216,7 @@ const Profiles = (() => {
       if (ghostSamples) p.ghostData = ghostSamples;
     }
     // update top-10 leaderboard
-    const entry = { dist, coins, date: new Date().toLocaleDateString(), daily: isDaily };
+    const entry = { dist, coins, timeMs: Math.max(0, playMs), date: new Date().toLocaleDateString(), daily: isDaily };
     p.runHistory.push(entry);
     p.runHistory.sort((a, b) => b.dist - a.dist);
     if (p.runHistory.length > 10) p.runHistory.length = 10;
@@ -420,6 +428,7 @@ const Profiles = (() => {
     ensure(p);
     if (!p.colorsOwned[id]) return { ok: false, error: 'Not owned.' };
     p.bodyColor = id;
+    p.bodySkin = null;            // picking a solid colour clears any body skin
     save();
     return { ok: true };
   }
@@ -437,6 +446,46 @@ const Profiles = (() => {
     // clicking the active colour clears the recolour (back to default)
     if (map[id] === colorId) delete map[id];
     else if (colorId) map[id] = colorId; else delete map[id];
+    delete itemSkinMap(p, type)[id]; // picking a solid colour clears any item skin
+    save();
+    return { ok: true };
+  }
+
+  // ---- SKINS (animated materials; override the solid colour for their slot) ----
+  function ownsSkin(id) { const p = current(); return !!(p && ensure(p).skinsOwned[id]); }
+  function buySkin(id) {
+    const p = current();
+    if (!p) return { ok: false, error: 'No profile.' };
+    ensure(p);
+    const s = (typeof Skins !== 'undefined') ? Skins.byId(id) : null;
+    if (!s) return { ok: false, error: 'Unavailable.' };
+    if (p.skinsOwned[id]) return { ok: false, error: 'Already owned.' };
+    if (p.coins < s.price) return { ok: false, error: 'Not enough coins.' };
+    p.coins -= s.price;
+    p.skinsOwned[id] = true;
+    save();
+    return { ok: true };
+  }
+  function bodySkinId() { const p = current(); return p ? (ensure(p).bodySkin || null) : null; }
+  function setBodySkin(id) {
+    const p = current();
+    if (!p) return { ok: false };
+    ensure(p);
+    if (id && !p.skinsOwned[id]) return { ok: false, error: 'Not owned.' };
+    p.bodySkin = id || null;     // skin wins over the solid colour while equipped
+    save();
+    return { ok: true };
+  }
+  function itemSkinMap(p, type) { return type === 'hat' ? p.hatSkin : p.clothesSkin; }
+  function itemSkinId(type, id) { const p = current(); return p ? (itemSkinMap(ensure(p), type)[id] || null) : null; }
+  function setItemSkin(type, id, skinId) {
+    const p = current();
+    if (!p) return { ok: false };
+    ensure(p);
+    if (skinId && !p.skinsOwned[skinId]) return { ok: false, error: 'Not owned.' };
+    const map = itemSkinMap(p, type);
+    if (map[id] === skinId || !skinId) delete map[id]; // toggle off / clear
+    else map[id] = skinId;
     save();
     return { ok: true };
   }
@@ -506,6 +555,7 @@ const Profiles = (() => {
     colorCatalogue, ownsColor, buyColor, colorHex,
     bodyColorId, bodyColorHex, setBodyColor,
     itemColorId, itemColorHex, setItemColor,
+    ownsSkin, buySkin, bodySkinId, setBodySkin, itemSkinId, setItemSkin,
     addXp, prestige, progress,
     dailyKey, dailySeed, getDailyBest,
     setGhost, getGhost, getLeaderboard,

@@ -53,9 +53,18 @@
     if (!p) return;
     document.getElementById('chipName').textContent = p.name;
     document.getElementById('chipCoins').textContent = p.coins;
-    document.getElementById('hudBest').textContent = p.best;
+    const hudBestEl = document.getElementById('hudBest');
+    hudBestEl.textContent = p.best;
+    hudBestEl.classList.remove('hud-newbest');
     renderLevel();
     renderMenuCharacter();
+    updateHardFlag();
+  }
+
+  // Show the "Hard Mode 500 Coins Risk" warning on the menu only when Hard is selected.
+  function updateHardFlag() {
+    const flag = document.getElementById('hardFlag');
+    if (flag) flag.style.display = (Settings.data.difficulty === 'hard') ? 'inline-flex' : 'none';
   }
 
   // ---- IN-GAME CONFIRM DIALOG ----
@@ -150,18 +159,38 @@
     },
     buyColor(id) {
       const res = Profiles.buyColor(id);
-      if (res.ok) { Audio2.sfx.coin(); Profiles.setBodyColor(id); } // auto-select on purchase
+      if (res.ok) Audio2.sfx.coin();
       refreshShop();
+      return res;
     },
     setBodyColor(id) {
       Profiles.setBodyColor(id);
       Audio2.sfx.ui();
       refreshShop();
     },
+    refreshColors() {
+      refreshShop();
+    },
     setItemColor(type, id, colorId) {
       Profiles.setItemColor(type, id, colorId);
       Audio2.sfx.ui();
       refreshShop();
+    },
+    setBodySkin(id) {
+      Profiles.setBodySkin(id);
+      Audio2.sfx.ui();
+      refreshShop();
+    },
+    setItemSkin(type, id, skinId) {
+      Profiles.setItemSkin(type, id, skinId);
+      Audio2.sfx.ui();
+      refreshShop();
+    },
+    buySkin(id) {
+      const res = Profiles.buySkin(id);
+      if (res.ok) Audio2.sfx.coin();
+      refreshShop();
+      return res;
     },
     buyConsumable(id) {
       const res = Profiles.buyConsumable(id);
@@ -189,6 +218,7 @@
     updateChip();
   }
   function openShop() {
+    resetShopColorPreview();
     refreshShop();
     Screens.show('shop');
   }
@@ -196,6 +226,7 @@
     const btn = e.target.closest('.shop-tab');
     if (!btn) return;
     shopTab = btn.dataset.tab;
+    resetShopColorPreview();
     refreshShop();
   });
   document.querySelector('#shop .back-btn').addEventListener('click', () => Screens.show('menu'));
@@ -353,6 +384,7 @@
   // ---- SETTINGS back ----
   document.querySelector('#settings .back-btn').addEventListener('click', () => {
     Screens.show('menu');
+    updateHardFlag();
   });
 
   // ---- PAUSE button ----

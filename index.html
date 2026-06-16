@@ -57,6 +57,15 @@
           <span class="title-bottom">RACER</span>
         </h1>
         <p class="tagline">DASH &middot; LEAP &middot; SURVIVE</p>
+        <div class="hard-flag" id="hardFlag" style="display:none">
+          <svg class="skull-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="#ff3c5c" d="M12 2C7 2 3 5.8 3 10.5c0 2.7 1.4 5.1 3.5 6.5V19a2 2 0 0 0 2 2h1v-2h1.5v2h2v-2H16v2h1a2 2 0 0 0 2-2v-2c2.1-1.4 3.5-3.8 3.5-6.5C22.5 5.8 17 2 12 2z"/>
+            <circle cx="8.6" cy="11" r="2.1" fill="#0a0e1a"/>
+            <circle cx="15.4" cy="11" r="2.1" fill="#0a0e1a"/>
+            <path fill="#0a0e1a" d="M11 14.2h2l-1 2.1z"/>
+          </svg>
+          <span class="hard-flag-text">HARD MODE &middot; 500 COINS RISK</span>
+        </div>
         <div class="level-bar" id="levelBar">
           <div class="lvl-info">
             <span class="lvl-badge" id="lvlBadge">LVL 1</span>
@@ -184,7 +193,7 @@
           <div class="seg" id="difficulty">
             <button data-val="easy">Easy</button>
             <button data-val="normal" class="on">Normal</button>
-            <button data-val="hard">Hard</button>
+            <button data-val="hard" class="hard-opt">Hard</button>
           </div>
         </div>
 
@@ -258,6 +267,7 @@
   </div>
 
   <script src="js/audio.js"></script>
+  <script src="js/skins.js"></script>
   <script src="js/profiles.js"></script>
   <script src="js/input.js"></script>
   <script src="js/player.js"></script>

@@ -140,23 +140,27 @@ class Level {
     }
 
     const x = this.nextX + gap;
-    this.platforms.push({ x, y, w, h: 220 });
+    const pl = { x, y, w, h: 220 };
+    this.platforms.push(pl);
 
-    const pattern = this._spawnCoins(x, y, w, kind, cfg);
+    const pattern = this._spawnCoins(x, y, w, kind, cfg, pl);
+
+    // attach a coin to a platform so it can ride along when the platform moves/elevates
+    const addCoin = (coin) => { coin.plat = pl; coin.phase = coin.x; coin.offX = coin.x - pl.x; coin.offY = coin.y - pl.y; this.coins.push(coin); };
 
     const vmul = this.difficulty === 'hard' ? 1.5 : 1;
     if (special === 'risky') {
-      this.coins.push({ x: x - gap * 0.5, y: y + 78, got: false, value: Math.round(200 * vmul), kind: 'risky' });
+      addCoin({ x: x - gap * 0.5, y: y + 78, got: false, value: Math.round(200 * vmul), kind: 'risky' });
       this._specialCd = 11;
     } else if (special === 'secret') {
       const topY = Math.min(y, this.lastY);
-      this.coins.push({ x: x + gap * 0.5, y: topY - 100, got: false, value: Math.round(100 * vmul), kind: 'secret' });
+      addCoin({ x: x + gap * 0.5, y: topY - 100, got: false, value: Math.round(100 * vmul), kind: 'secret' });
       this._specialCd = 11;
     } else if (special === 'leap') {
-      this.coins.push({ x: x + w * 0.5, y: y - 116, got: false, value: Math.round(50 * vmul), kind: 'leap' });
+      addCoin({ x: x + w * 0.5, y: y - 116, got: false, value: Math.round(50 * vmul), kind: 'leap' });
       this._specialCd = 8;
     } else if (special === 'bonus') {
-      this.coins.push({ x: x + w * 0.5, y: y - 116, got: false, value: 20, kind: 'bonus' });
+      addCoin({ x: x + w * 0.5, y: y - 116, got: false, value: 20, kind: 'bonus' });
       this._specialCd = 8;
     }
     if (this._specialCd > 0) this._specialCd--;
@@ -217,8 +221,10 @@ class Level {
           y: y - 28,
           onTime:  rrand(rng, 60, 90),
           offTime: rrand(rng, 120, 180),
+          chargeTime: 48,        // telegraph window before the beam fires
           timer: 0,
-          active: true,
+          active: false,         // start idle so the first beam telegraphs in
+          charging: false,
         });
         this._lastLaser = true;
       } else if (hRoll < cfg.movingChance + cfg.crumbleChance + cfg.sawChance + cfg.iceChance + cfg.conveyorChance + cfg.laserChance + cfg.elevatorChance) {
@@ -239,10 +245,11 @@ class Level {
           y: y - 340,
           platformX: x,
           platformW: w,
-          fireInterval: rrand(rng, 250, 400),
-          timer: rrand(rng, 0, 100),
+          fireInterval: rrand(rng, 75, 130),
+          timer: rrand(rng, 0, 60),
           flash: 0,
           aimAngle: Math.PI / 2,
+          activated: false,
         });
         this._lastLaser = false;
       } else {
@@ -291,12 +298,15 @@ class Level {
     }
   }
 
-  _spawnCoins(x, y, w, kind, cfg) {
+  _spawnCoins(x, y, w, kind, cfg, plat) {
     cfg = cfg || this.cfg;
     const rng = this._rng;
     const cy = y - 34;
     const val = cfg.coinValue;
-    const add = (cx, cyy) => this.coins.push({ x: cx, y: cyy, got: false, value: val });
+    const add = (cx, cyy) => this.coins.push(
+      plat ? { x: cx, y: cyy, got: false, value: val, phase: cx, plat, offX: cx - plat.x, offY: cyy - plat.y }
+           : { x: cx, y: cyy, got: false, value: val, phase: cx }
+    );
     const empty = cfg.emptyChance;
     let roll = rng();
     if (kind === 'long') roll = 0.1 + roll * 0.9;
@@ -361,6 +371,8 @@ class Level {
       l.timer += dt;
       const cycle = l.active ? l.onTime : l.offTime;
       if (l.timer >= cycle) { l.timer = 0; l.active = !l.active; }
+      // telegraph: glow/flicker during the final stretch of the off-phase
+      l.charging = (!l.active) && (l.timer >= l.offTime - (l.chargeTime || 48));
       // follow moving platform if applicable
       if (l.platform.moving) {
         const dx = l.platform.x - l.platform.originX;
@@ -378,6 +390,13 @@ class Level {
       if (pl.elevOffset < -pl.elevRange) { pl.elevOffset = -pl.elevRange; pl.elevDir =  1; }
       pl.vy = pl.elevDir * spd;
       pl.y = pl.originY + pl.elevOffset;
+    }
+    // coins ride along with their moving / elevating platform so they stay collectable
+    for (const c of this.coins) {
+      const pl = c.plat;
+      if (!pl || (!pl.moving && !pl.elevator)) continue;
+      c.x = pl.x + c.offX;
+      c.y = pl.y + c.offY;
     }
     // turrets fire darts from their muzzle (only when near/on screen)
     for (const tu of this.turrets) {
@@ -486,11 +505,14 @@ class Level {
     const rank = { bonus: 1, leap: 2, secret: 3, risky: 4 };
     for (const c of this.coins) {
       if (c.got) continue;
-      const dx = (p.x + p.w / 2) - c.x;
-      const dy = (p.y + p.h / 2) - c.y;
-      // special coins have a slightly larger pickup radius
-      const reach = c.kind ? 30 : 26;
-      if (dx * dx + dy * dy < reach * reach) {
+      // collision radius = coin's visual size + a little grace (specials are bigger)
+      const coinR = c.kind ? 18 : 13;
+      // closest point on the player's hitbox to the coin centre, so a coin grazing the
+      // top of the head or the side of the body still counts as collected
+      const nx = clamp(c.x, p.x, p.x + p.w);
+      const ny = clamp(c.y, p.y, p.y + p.h);
+      const cdx = c.x - nx, cdy = c.y - ny;
+      if (cdx * cdx + cdy * cdy < coinR * coinR) {
         c.got = true;
         collected += c.value || 1;
         count++;
@@ -542,6 +564,16 @@ class Level {
       const lo = 0.28, hi = Math.PI - 0.28;
       if (a < 0) a = (Math.cos(a) < 0) ? hi : lo;
       tu.aimAngle = clamp(a, lo, hi);
+      // activation: as soon as the player enters range, prime a quick first shot so
+      // a fast runner can't blow past before it ever fires
+      const near = Math.abs(pcx - tu.x) < 620;
+      if (near && !tu.activated) {
+        tu.activated = true;
+        const primed = tu.fireInterval - 12; // first shot ~0.2s after spotting
+        if (tu.timer < primed) tu.timer = primed;
+      } else if (!near) {
+        tu.activated = false;
+      }
     }
     return { collected, count, bonusKind, dead };
   }
@@ -721,18 +753,53 @@ class Level {
       ctx.restore();
     }
 
-    // laser beams
+    // laser beams — grounded emitter towers with a charge-up telegraph
     for (const l of this.lasers) {
       const lx1 = l.x1 - cam.x;
       const lx2 = l.x2 - cam.x;
       const ly  = l.y  - cam.y;
       if (lx2 < 0 || lx1 > ctx.canvas.width) continue;
-      // posts
-      ctx.fillStyle = '#556';
-      ctx.fillRect(lx1 - 3, ly - 18, 6, 22);
-      ctx.fillRect(lx2 - 3, ly - 18, 6, 22);
-      // beam
-      if (l.active) {
+      const baseY = (l.platform.y - cam.y); // platform surface — towers stand on this
+      const active = !!l.active;
+      const charging = !!l.charging;
+      // charge ramps 0..1 over the telegraph window
+      const chargeT = charging
+        ? clamp((l.timer - (l.offTime - (l.chargeTime || 48))) / (l.chargeTime || 48), 0, 1)
+        : 0;
+
+      // two emitter towers, rooted on the platform so nothing floats
+      for (const ex of [lx1, lx2]) {
+        const towerTop = ly - 8;
+        const pg = ctx.createLinearGradient(ex, towerTop, ex, baseY);
+        pg.addColorStop(0, '#444b66');
+        pg.addColorStop(1, '#191d2b');
+        ctx.fillStyle = pg;
+        ctx.fillRect(ex - 5, towerTop, 10, baseY - towerTop);
+        // base plate flush with the platform
+        ctx.fillStyle = '#0e1119';
+        ctx.fillRect(ex - 8, baseY - 5, 16, 5);
+        // emitter head
+        ctx.fillStyle = '#2b3148';
+        ctx.fillRect(ex - 8, ly - 9, 16, 13);
+        ctx.fillStyle = '#0e1119';
+        ctx.fillRect(ex - 8, ly - 9, 16, 3);
+        // lens — colour and glow track the state
+        const lensColor = active ? '#ff3030' : (charging ? '#ffb347' : '#5a2530');
+        ctx.save();
+        if (active || charging) {
+          ctx.shadowColor = active ? '#ff2020' : '#ffaa30';
+          ctx.shadowBlur = active ? 16 : (6 + chargeT * 12);
+        }
+        ctx.fillStyle = lensColor;
+        ctx.beginPath();
+        ctx.arc(ex, ly - 2, active ? 4.5 : (2.5 + chargeT * 1.8), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // beam / telegraph between the two heads (drawn at lens height)
+      const by = ly - 2;
+      if (active) {
         ctx.save();
         ctx.shadowColor = '#ff2020';
         ctx.shadowBlur = 18;
@@ -740,27 +807,42 @@ class Level {
         ctx.lineWidth = 3;
         ctx.globalAlpha = 0.7 + 0.3 * Math.sin(t * 0.3);
         ctx.beginPath();
-        ctx.moveTo(lx1, ly);
-        ctx.lineTo(lx2, ly);
+        ctx.moveTo(lx1, by);
+        ctx.lineTo(lx2, by);
         ctx.stroke();
         // bright core
-        ctx.strokeStyle = '#ff8080';
+        ctx.strokeStyle = '#ffd0d0';
         ctx.lineWidth = 1.2;
         ctx.globalAlpha = 1;
         ctx.beginPath();
-        ctx.moveTo(lx1, ly);
-        ctx.lineTo(lx2, ly);
+        ctx.moveTo(lx1, by);
+        ctx.lineTo(lx2, by);
         ctx.stroke();
         ctx.restore();
-      } else {
-        // dim indicator when off
+      } else if (charging) {
+        // pulsing dashed warning line that intensifies as the beam nears firing
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,80,80,0.15)';
+        const blink = 0.25 + 0.5 * Math.abs(Math.sin(t * (0.3 + chargeT * 0.6)));
+        ctx.strokeStyle = `rgba(255,170,50,${(0.3 + chargeT * 0.6) * blink})`;
+        ctx.lineWidth = 1 + chargeT * 1.5;
+        ctx.shadowColor = '#ffaa30';
+        ctx.shadowBlur = 4 + chargeT * 8;
+        ctx.setLineDash([6, 5]);
+        ctx.beginPath();
+        ctx.moveTo(lx1, by);
+        ctx.lineTo(lx2, by);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      } else {
+        // dim idle guide so the player can read where a beam will appear
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,80,80,0.12)';
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 6]);
         ctx.beginPath();
-        ctx.moveTo(lx1, ly);
-        ctx.lineTo(lx2, ly);
+        ctx.moveTo(lx1, by);
+        ctx.lineTo(lx2, by);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.restore();
@@ -882,10 +964,13 @@ class Level {
       if (c.got) continue;
       const x = c.x - cam.x;
       if (x > ctx.canvas.width + 40 || x < -40) continue;
-      const y = c.y - cam.y + Math.sin(t * 0.005 + c.x) * 4;
-      const sq = Math.abs(Math.cos(t * 0.004 + c.x));
+      // animate with a frozen per-coin phase seed (not the live position) so coins on
+      // moving platforms — and specials while the camera scrolls — don't jitter
+      const ph = (c.phase != null) ? c.phase : c.x;
+      const y = c.y - cam.y + Math.sin(t * 0.005 + ph) * 4;
+      const sq = Math.abs(Math.cos(t * 0.004 + ph));
 
-      if (c.kind) { this._drawSpecialCoin(ctx, x, y, t, c.kind); continue; }
+      if (c.kind) { this._drawSpecialCoin(ctx, x, y, t, c.kind, ph); continue; }
 
       ctx.save();
       ctx.translate(x, y);
@@ -901,7 +986,7 @@ class Level {
   }
 
   // Bonus / secret / risky coins: bigger, glowing, with a pulsing ring + label.
-  _drawSpecialCoin(ctx, x, y, t, kind) {
+  _drawSpecialCoin(ctx, x, y, t, kind, phase) {
     const styles = {
       bonus:  { col: '#2ee6ff', r: 11, label: '+20' },
       leap:   { col: '#3cffb0', r: 13, label: '+50' },
@@ -909,7 +994,7 @@ class Level {
       risky:  { col: '#ff4dd2', r: 15, label: '+200' },
     };
     const s = styles[kind] || styles.bonus;
-    const pulse = 0.5 + 0.5 * Math.sin(t * 0.006 + x);
+    const pulse = 0.5 + 0.5 * Math.sin(t * 0.006 + (phase != null ? phase : x));
     ctx.save();
     ctx.translate(x, y);
     // outer pulsing ring

@@ -36,6 +36,11 @@ class Player {
     this.clothesTint = null;     // recolour override for clothes (hex) or null
     this.hatTint = null;         // recolour override for hat (hex) or null
 
+    // animated skins (override the solid colour/tint for their slot while equipped)
+    this.bodySkin = null;        // body skin id or null
+    this.hatSkin = null;         // hat skin id or null
+    this.clothesSkin = null;     // clothes skin id or null
+
     // tuning
     this.accel = 0.9;
     this.maxRun = 5.2;
@@ -152,7 +157,17 @@ class Player {
   }
 
   // ---- STICKMAN RENDER ----
-  draw(ctx) {
+  // t is the animation clock in seconds (drives animated skins). Optional.
+  draw(ctx, t) {
+    t = t || 0;
+    // resolve animated skins → effective colours (skin wins over the solid colour/tint)
+    const S = (typeof Skins !== 'undefined') ? Skins : null;
+    this._effBody = (S && this.bodySkin) ? (S.resolveHex(S.byId(this.bodySkin), t) || this.bodyColor) : this.bodyColor;
+    this._effHatTint = (S && this.hatSkin) ? (S.resolveHex(S.byId(this.hatSkin), t) || this.hatTint) : this.hatTint;
+    this._effClothesTint = (S && this.clothesSkin) ? (S.resolveHex(S.byId(this.clothesSkin), t) || this.clothesTint) : this.clothesTint;
+    this._skinTime = t;
+    this._S = S;
+
     const speed = Math.abs(this.vx);
     const running = this.onGround && speed > 0.4;
     const airborne = !this.onGround;
@@ -240,10 +255,21 @@ class Player {
     const elR = jointArm(shoulder, rArm, armLen);
     const haR = jointArm(elR, rArm + rFore, armLen);
 
+    // head centre (hoisted so skin overlays can anchor to it)
+    const headY = neckY - headR + 1;
+    // shared anchor set for skin zone overlays (+ live motion for reactive skins)
+    const skinA = this._anchors(shoulder, hip, headY, headR, neckY);
+    skinA.motion = { speed, airborne, vy: this.vy, grounded: this.onGround };
     // body colour scheme (derive mid & dark tones from the bright base)
-    const bright = this.bodyColor;
-    const mid = shade(bright, 0.62);
-    const dark = shade(bright, 0.4);
+    const baseHex = this._effBody || this.bodyColor;
+    const mid = shade(baseHex, 0.62);
+    const dark = shade(baseHex, 0.4);
+    // gradient ("paint") skins override the bright front pieces with a CanvasGradient
+    // built in THIS transformed space (head ~ -82, feet ~ 0).
+    const bodyPaint = (this._S && this.bodySkin)
+      ? this._S.resolvePaint(this._S.byId(this.bodySkin), this._skinTime, ctx, { x0: -16, y0: -82, x1: 16, y1: 2 })
+      : null;
+    const bright = bodyPaint || baseHex;
 
     // --- DRAW (back limbs first for depth) ---
     ctx.lineCap = 'round';
@@ -273,7 +299,17 @@ class Player {
     this._limb(ctx, shoulder, elL, haL, 7, bright);
 
     // equipped clothes — drawn AFTER the limbs so trousers/skirts cover the legs & hip
-    if (this.clothes) this._drawClothes(ctx, { hip, shoulder, knL, ftL, knR, ftR, elL, haL, elR, haR });
+    if (this.clothes) {
+      const clothesPaint = (this._S && this.clothesSkin)
+        ? this._S.resolvePaint(this._S.byId(this.clothesSkin), this._skinTime, ctx, { x0: -14, y0: -58, x1: 14, y1: 2 })
+        : null;
+      this._drawClothes(ctx, { hip, shoulder, knL, ftL, knR, ftR, elL, haL, elR, haR }, clothesPaint || this._effClothesTint);
+    }
+
+    // legendary/epic zone overlay for the CLOTHES slot (crisp focal art on top)
+    if (this._S && this.clothes && this.clothesSkin) {
+      this._S.drawOverlay(this._S.byId(this.clothesSkin), 'clothes', ctx, this._skinTime, skinA);
+    }
 
     // head with neck
     ctx.strokeStyle = bright;
@@ -284,7 +320,6 @@ class Player {
     ctx.stroke();
 
     // head fill
-    const headY = neckY - headR + 1;
     ctx.beginPath();
     ctx.arc(0, headY, headR, 0, Math.PI * 2);
     ctx.fillStyle = dark;
@@ -298,16 +333,55 @@ class Player {
     ctx.fillStyle = '#ffffff';
     ctx.fill();
 
+    // body-slot zone overlay (core identity art on the bare figure)
+    if (this._S && this.bodySkin) {
+      this._S.drawOverlay(this._S.byId(this.bodySkin), 'body', ctx, this._skinTime, skinA);
+    }
+
     // equipped hat
-    if (this.hat) this._drawHat(ctx, headY, headR);
+    if (this.hat) {
+      const hatPaint = (this._S && this.hatSkin)
+        ? this._S.resolvePaint(this._S.byId(this.hatSkin), this._skinTime, ctx, { x0: -14, y0: -86, x1: 14, y1: -56 })
+        : null;
+      this._drawHat(ctx, headY, headR, hatPaint || this._effHatTint);
+      // hat-slot zone overlay (band emblem + floating halo) on top of the hat
+      if (this._S && this.hatSkin) {
+        skinA.hatTopY = this._hatTopY(headY, headR);
+        this._S.drawOverlay(this._S.byId(this.hatSkin), 'hat', ctx, this._skinTime, skinA);
+      }
+    }
 
     ctx.restore();
   }
 
+  // Named anchor points (player local space) for skin zone overlays.
+  _anchors(shoulder, hip, headY, headR, neckY) {
+    return {
+      chest: { x: 0, y: (shoulder.y + hip.y) / 2 },
+      shoulder: { x: shoulder.x, y: shoulder.y },
+      shoulderL: { x: -5, y: shoulder.y + 1 },
+      shoulderR: { x: 5, y: shoulder.y + 1 },
+      hip: { x: hip.x, y: hip.y },
+      headY, headR, neckY,
+      crownY: headY - headR,
+      hatTopY: headY - headR - 2,
+      hemY: -12,
+    };
+  }
+
+  // Topmost y of the equipped hat (where a floating halo should sit above it).
+  _hatTopY(headY, headR) {
+    const crownY = headY - headR;
+    if (this.hat === 'topHat') return crownY - 16;
+    if (this.hat === 'propHat') return crownY - 9;
+    if (this.hat === 'goldCowboy') return crownY - 2;
+    return crownY - 2;
+  }
+
   // ---- COSMETIC: HATS ----
-  _drawHat(ctx, headY, headR) {
+  _drawHat(ctx, headY, headR, tint) {
     const topY = headY - headR; // crown of the head
-    const tint = this.hatTint;
+    tint = (tint !== undefined) ? tint : this.hatTint;
     ctx.save();
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
@@ -384,9 +458,9 @@ class Player {
 
   // ---- COSMETIC: CLOTHES (no buffs) ----
   // j = { hip, shoulder, knL, ftL, knR, ftR, elL, haL, elR, haR }
-  _drawClothes(ctx, j) {
+  _drawClothes(ctx, j, tint) {
     const { hip, shoulder, knL, ftL, knR, ftR, elL, haL, elR, haR } = j;
-    const tint = this.clothesTint;
+    tint = (tint !== undefined) ? tint : this.clothesTint;
     ctx.save();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';

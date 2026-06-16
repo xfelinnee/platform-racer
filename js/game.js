@@ -64,6 +64,9 @@ class Game {
     this.coins = 0;
     this.maxDist = 0;
     this.dustTimer = 0;
+    // remember the best distance going into this run so the HUD can show a live best
+    this.startBest = (typeof Profiles !== 'undefined' && Profiles.current())
+      ? Profiles.current().best : (this.settings.best || 0);
 
     // apply purchased upgrades from the active profile
     this.coinMult = 1;
@@ -95,6 +98,10 @@ class Game {
       this.player.bodyColor = Profiles.bodyColorHex();
       this.player.hatTint = this.player.hat ? Profiles.itemColorHex('hat', this.player.hat) : null;
       this.player.clothesTint = this.player.clothes ? Profiles.itemColorHex('clothes', this.player.clothes) : null;
+      // animated skins (override the solid colour/tint for their slot)
+      this.player.bodySkin = Profiles.bodySkinId();
+      this.player.hatSkin = this.player.hat ? Profiles.itemSkinId('hat', this.player.hat) : null;
+      this.player.clothesSkin = this.player.clothes ? Profiles.itemSkinId('clothes', this.player.clothes) : null;
       const buff = Profiles.equippedHatBuff();
       if (buff === 'highJump') this.player.jumpVel = 16.8;     // higher leap (default 14.5)
       if (buff === 'hover') this.player.canHover = true;        // hold jump in air to slow-fall
@@ -305,6 +312,13 @@ class Game {
     el('hudTime').textContent = (this.time / 1000).toFixed(1);
     el('hudDist').textContent = dist;
     el('hudCoins').textContent = this.coins;
+    // live "Best": once this run passes the previous best, the HUD tracks the new best
+    const liveBest = Math.max(this.startBest || 0, this.maxDist);
+    const bestEl = el('hudBest');
+    if (bestEl) {
+      bestEl.textContent = liveBest;
+      bestEl.classList.toggle('hud-newbest', this.maxDist > (this.startBest || 0));
+    }
   }
 
   // ---------- RENDER ----------
@@ -345,7 +359,7 @@ class Game {
       ctx.translate(-this.cam.x, -this.cam.y);
       // blink while invulnerable after a revive
       if (this.invuln > 0 && Math.floor(now / 80) % 2 === 0) ctx.globalAlpha = 0.35;
-      this.player.draw(ctx);
+      this.player.draw(ctx, now / 1000);
       ctx.restore();
     }
 
