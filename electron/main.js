@@ -145,6 +145,12 @@ ipcMain.on('install-update', () => {
   if (updater) updater.quitAndInstall();
 });
 
+// Renderer asks for the real app version (sourced from package.json at build time).
+// Synchronous so the UI can stamp it immediately on load.
+ipcMain.on('app:get-version', (event) => {
+  event.returnValue = app.getVersion();
+});
+
 // Only allow one running instance so it doesn't fight over the save/cache files.
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {

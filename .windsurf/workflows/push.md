@@ -6,7 +6,12 @@ Push local commits to `origin master`.
 
 ## Prerequisites
 - All changes must be committed before pushing.
-- If this is a release push, bump the version in BOTH `package.json` AND the `index.html` footer first.
+- `/push` does NOT bump the version. To ship a versioned build that reaches
+  installed apps via auto-update, use `/release` instead (it runs `npm version`
+  + `node scripts/release.js`).
+- The in-app footer version is now stamped automatically from `package.json`
+  (via Electron `app.getVersion()`), so you do NOT need to hand-edit the
+  `index.html` footer on the desktop build.
 
 ## Steps
 1. Run `git status` to verify the working tree is clean (no uncommitted changes).

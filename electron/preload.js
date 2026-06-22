@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('desktop', {
   isDesktop: true,
+  // Real app version (from package.json), so the UI never shows a stale hardcoded number.
+  appVersion: ipcRenderer.sendSync('app:get-version'),
   // Auto-update: check, download, install, and listen for status
   checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),

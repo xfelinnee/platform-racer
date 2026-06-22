@@ -2,6 +2,16 @@
 (function () {
   initSettingsUI();
   Profiles.load();
+
+  // Stamp the real app version into the footer. On desktop this comes from
+  // package.json via Electron, so the displayed version always matches the
+  // installed build and never needs manual editing.
+  try {
+    const verTag = document.getElementById('verTag');
+    if (verTag && window.desktop && window.desktop.appVersion) {
+      verTag.textContent = 'v' + window.desktop.appVersion;
+    }
+  } catch (e) { /* ignore */ }
   Audio2.setVolumes(Settings.data.musicVol, Settings.data.sfxVol);
 
   // Unlock audio + play a click on any button press (browser autoplay policy)
