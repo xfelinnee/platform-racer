@@ -7,6 +7,7 @@ const Input = (() => {
     ArrowLeft: 'left', KeyA: 'left',
     ArrowRight: 'right', KeyD: 'right',
     ArrowUp: 'jump', KeyW: 'jump', Space: 'jump',
+    ArrowDown: 'duck', KeyS: 'duck',
     ShiftLeft: 'run', ShiftRight: 'run',
     Escape: 'pause', KeyP: 'pause',
   };

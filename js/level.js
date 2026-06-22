@@ -12,7 +12,7 @@ const DIFFICULTY = {
     // no deadly traps and no crumbling — just a touch of gentle motion for variety
     movingChance: 0.05, crumbleChance: 0, sawChance: 0,
     iceChance: 0, conveyorChance: 0, laserChance: 0,
-    elevatorChance: 0.05, turretChance: 0,
+    elevatorChance: 0.05, turretChance: 0, bounceChance: 0.04,
   },
   normal: {
     gapMin: 95, gapMax: 175, dropChance: 0.40,
@@ -24,7 +24,7 @@ const DIFFICULTY = {
     deathPenalty: 0,
     movingChance: 0.18, crumbleChance: 0.12, sawChance: 0.10,
     iceChance: 0.12, conveyorChance: 0.10, laserChance: 0.08,
-    elevatorChance: 0.08, turretChance: 0.06,
+    elevatorChance: 0.08, turretChance: 0.06, bounceChance: 0.05,
   },
   hard: {
     gapMin: 115, gapMax: 205, dropChance: 0.52,
@@ -36,7 +36,7 @@ const DIFFICULTY = {
     deathPenalty: 500,      // die and you lose 500 from your balance
     movingChance: 0.32, crumbleChance: 0.22, sawChance: 0.22,
     iceChance: 0.18, conveyorChance: 0.14, laserChance: 0.14,
-    elevatorChance: 0.12, turretChance: 0.10,
+    elevatorChance: 0.12, turretChance: 0.10, bounceChance: 0.05,
   },
 };
 
@@ -102,6 +102,7 @@ class Level {
       laserChance:   lerp(0, c.laserChance || 0),
       elevatorChance: lerp(0, c.elevatorChance || 0),
       turretChance:  lerp(0, c.turretChance || 0),
+      bounceChance:  lerp(0, c.bounceChance || 0),
     };
   }
 
@@ -252,6 +253,12 @@ class Level {
           activated: false,
         });
         this._lastLaser = false;
+      } else if (hRoll < cfg.movingChance + cfg.crumbleChance + cfg.sawChance + cfg.iceChance + cfg.conveyorChance + cfg.laserChance + cfg.elevatorChance + cfg.turretChance + cfg.bounceChance && w > 90) {
+        // bounce pad — relaunches the player higher than a normal jump on contact
+        const last = this.platforms[this.platforms.length - 1];
+        last.bounce = true;
+        last.bounceStrength = 20.5; // apex ~290px vs ~170px for a normal jump
+        this._lastLaser = false;
       } else {
         this._lastLaser = false;
       }
@@ -261,7 +268,7 @@ class Level {
 
     // ---- spikes (never on crumbling or elevator platforms) ----
     const lastPlat = this.platforms[this.platforms.length - 1];
-    if (!isCrumbling && !lastPlat.elevator) this._spawnSpikes(x, y, w, pattern, cfg);
+    if (!isCrumbling && !lastPlat.elevator && !lastPlat.bounce) this._spawnSpikes(x, y, w, pattern, cfg);
 
     const lastPl = this.platforms[this.platforms.length - 1];
     if (!lastPl._escapeTarget) {
@@ -471,6 +478,7 @@ class Level {
     let landed = false;
     p.onGround = false;
     p.standingOn = null;
+    p.bouncePad = null;
     for (const pl of this.platforms) {
       if (pl.fallen) continue;
       if (this._aabb(p, pl)) {
@@ -480,6 +488,9 @@ class Level {
           p.onGround = true;
           landed = true;
           p.standingOn = pl;
+          // flag bounce pads independently of standingOn so an adjacent/overlapping
+          // normal platform can never suppress a launch
+          if (pl.bounce) p.bouncePad = pl;
           if (pl.crumble && !pl.crumbling) { pl.crumbling = true; pl.crumbleTimer = 0; }
           if (pl.conveyor) { p.standingOn.conveyorPush = pl.conveyorDir * pl.conveyorSpeed; }
         } else if (p.vy < 0) {
@@ -601,6 +612,7 @@ class Level {
                     : pl.ice      ? '#c8f8ff'
                     : pl.conveyor ? '#ffc832'
                     : pl.elevator ? '#a47cff'
+                    : pl.bounce   ? '#39ff88'
                     : '#2ee6ff';
 
       const grad = ctx.createLinearGradient(0, y, 0, y + 60);
@@ -609,6 +621,7 @@ class Level {
                          : pl.ice      ? '#0d2a3a'
                          : pl.conveyor ? '#2a2210'
                          : pl.elevator ? '#1a1030'
+                         : pl.bounce   ? '#0d3a24'
                          : '#243a72');
       grad.addColorStop(1, '#101a3a');
       ctx.fillStyle = grad;
@@ -687,6 +700,28 @@ class Level {
         ctx.moveTo(x + 4, y); ctx.lineTo(x + 4, y + 50);
         ctx.moveTo(x + pl.w - 4, y); ctx.lineTo(x + pl.w - 4, y + 50);
         ctx.stroke();
+        ctx.restore();
+      }
+
+      // bounce pad — fully static upward chevrons that read as "launch here" (no flashing)
+      if (pl.bounce) {
+        ctx.save();
+        const chevW = 14, chevH = 9, gap = 26;
+        const count = Math.max(1, Math.floor((pl.w - 16) / gap));
+        const startX = x + (pl.w - (count - 1) * gap) / 2;
+        ctx.strokeStyle = 'rgba(57,255,136,0.9)';
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        const cyp = y + 12; // fixed height, constant brightness — no movement or flicker
+        for (let ci = 0; ci < count; ci++) {
+          const cxp = startX + ci * gap;
+          ctx.beginPath();
+          ctx.moveTo(cxp - chevW / 2, cyp + chevH);
+          ctx.lineTo(cxp, cyp);
+          ctx.lineTo(cxp + chevW / 2, cyp + chevH);
+          ctx.stroke();
+        }
         ctx.restore();
       }
 

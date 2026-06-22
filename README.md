@@ -13,7 +13,7 @@ A fast, neon platformer built with HTML5 Canvas and vanilla JavaScript. Features
   - Quit Game
 - **Profile & progression system** — multiple profiles, XP leveling, prestige system, persistent stats.
 - **Shop & cosmetics** — unlockable skins, hats (propeller hat enables hover), trails, and gameplay loadout items (double jump, high jump, magnet, etc.).
-- **Bold stickman character** — procedurally animated skeleton with run cycle, jump/fall poses, squash & stretch, lean, and a glowing eye.
+- **Bold stickman character** — procedurally animated skeleton with run cycle, jump/fall poses, a crouch/duck, squash & stretch, lean, and a glowing eye.
 - **Endless procedural platforming** — generated platforms, gaps, coins, and spikes that scale with difficulty.
 
 ### Obstacles & Hazards
@@ -28,6 +28,7 @@ A fast, neon platformer built with HTML5 Canvas and vanilla JavaScript. Features
 - **Elevator platforms** — move vertically with independent up/down speeds; no spikes spawn on them.
 - **Turrets** — mounted at the top of the screen, fire tracking darts downward on a timer.
 - **Tracking darts** — red projectiles that home toward the player but can be outrun.
+- **Bounce pads** — spring-green platforms that launch the player up and gently forward, carrying them across roughly two platforms. No spikes spawn on them.
 
 ### Polish & Juice
 
@@ -42,6 +43,7 @@ A fast, neon platformer built with HTML5 Canvas and vanilla JavaScript. Features
 | ------ | ---- |
 | Move   | `A` / `D` or `←` / `→` |
 | Jump   | `Space`, `W`, or `↑` (hold for higher) |
+| Duck   | `S` or `↓` (crouch to slide under hazards) |
 | Sprint | `Shift` |
 | Hover  | Hold `Jump` while falling (requires propeller hat) |
 | Pause  | `Esc` or `P` |

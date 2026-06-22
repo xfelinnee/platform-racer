@@ -16,6 +16,14 @@ class Player {
     this.landTimer = 0;
     this.justJumped = false;
     this.justLanded = false;
+    this.bounceLock = false;  // protects bounce-pad launch velocity from the variable-jump cut
+    this.justBounced = false; // set the frame a bounce pad launches the player
+    this.bounceFly = 0;       // frames of forward-momentum carry after a bounce pad
+    this.bounceFlySpeed = 0;  // boosted horizontal cruise speed during bounceFly
+    this.ducking = false;     // crouch state (S / Down on the ground)
+    this.duckAmount = 0;      // eased 0..1 crouch factor for smooth animation
+    this.fullH = 64;          // standing collision height
+    this.duckH = 20;          // crouched collision height (short enough to clear a laser)
 
     // upgrades
     this.speedMult = 1;      // x1.5 speed boost
@@ -58,6 +66,7 @@ class Player {
   update(dt, level) {
     this.justJumped = false;
     this.justLanded = false;
+    this.justBounced = false;
     const left = Input.held('left');
     const right = Input.held('right');
     const sprint = Input.held('run');
@@ -65,18 +74,34 @@ class Player {
 
     // horizontal movement — ice platforms greatly reduce traction but boost top speed
     const onIce = this.standingOn && this.standingOn.ice;
-    const maxSpeed = (sprint ? this.maxSprint : this.maxRun) * this.speedMult * (onIce ? 1.35 : 1);
+    let maxSpeed = (sprint ? this.maxSprint : this.maxRun) * this.speedMult * (onIce ? 1.35 : 1);
+    // a recent bounce pad temporarily raises the speed cap so the forward launch carries
+    const flying = this.bounceFly > 0 && !this.onGround;
+    if (flying) maxSpeed = Math.max(maxSpeed, this.bounceFlySpeed);
     const effectiveFriction = onIce ? 0.988 : this.friction;
     const effectiveAccel   = onIce ? accel * 0.3  : accel;
     if (left && !right) { this.vx -= effectiveAccel; this.dir = -1; }
     else if (right && !left) { this.vx += effectiveAccel; this.dir = 1; }
+    else if (flying) { this.vx *= 0.998; }   // glide: keep bounce momentum, almost no air drag
     else { this.vx *= effectiveFriction; if (Math.abs(this.vx) < 0.05) this.vx = 0; }
     this.vx = Math.max(-maxSpeed, Math.min(maxSpeed, this.vx));
+
+    // ducking (crouch) — only on the ground. Shrinks the collision box so you can slip
+    // under obstacles (e.g. lasers). Computed BEFORE collision; feet stay planted as the
+    // height changes so the figure crouches down rather than shrinking from the floor up.
+    this.ducking = this.onGround && Input.held('duck');
+    this.duckAmount += ((this.ducking ? 1 : 0) - this.duckAmount) * 0.3;
+    if (this.duckAmount < 0.001) this.duckAmount = 0;
+    const targetH = this.fullH - (this.fullH - this.duckH) * this.duckAmount;
+    const feetY = this.y + this.h;   // keep feet anchored to the ground
+    this.h = targetH;
+    this.y = feetY - this.h;
 
     // jump (with coyote + buffer)
     if (Input.justPressed('jump')) this.jumpBuffer = 8;
     if (this.jumpBuffer > 0) this.jumpBuffer--;
     if (this.coyote > 0) this.coyote--;
+    if (this.bounceFly > 0) this.bounceFly--;
 
     const canGround = this.onGround || this.coyote > 0;
     const canAir = !this.onGround && this.jumpsUsed < this.maxJumps;
@@ -89,9 +114,15 @@ class Player {
       this.jumpBuffer = 0;
       this.squash = 0.7; // stretch on takeoff
       this.justJumped = true;
+      this.bounceLock = false; // a manual jump is cuttable again
     }
-    // variable jump height
-    if (!Input.held('jump') && this.vy < -4) this.vy *= 0.86;
+    // variable jump height — but never cut a bounce-pad launch (it's automatic, so the
+    // player isn't holding Jump; cutting it here is what made old bounce pads fail)
+    if (this.bounceLock) {
+      if (this.vy >= 0) this.bounceLock = false;
+    } else if (!Input.held('jump') && this.vy < -4) {
+      this.vy *= 0.86;
+    }
 
     // asymmetric gravity: lighter going up, slightly more coming down for a smooth arc
     this.vy += (this.vy < 0 ? this.gravity : this.fallGravity);
@@ -141,7 +172,30 @@ class Player {
       this.landTimer = 12;
       if (impactVy > 3) this.justLanded = true; // only sound real falls
     }
-    if (landed) { this.coyote = 6; this.jumpsUsed = 0; }
+    if (landed) { this.coyote = 6; this.jumpsUsed = 0; this.bounceFly = 0; }
+
+    // ---- bounce pad: relaunch on contact with a fixed (deterministic) velocity ----
+    // Use the dedicated bouncePad flag (set in collideY) rather than standingOn, so
+    // consecutive pads always launch — even when another platform wins standingOn.
+    if (landed && this.bouncePad) {
+      const strength = this.bouncePad.bounceStrength || 20.5;
+      this.vy = -strength;
+      this.onGround = false;
+      this.standingOn = null;
+      this.coyote = 0;        // no leftover ground-jump grace stacking on the launch
+      this.jumpsUsed = 0;     // refresh air jumps at the apex
+      this.bounceLock = true; // keep full launch height regardless of input
+      // forward momentum: launch ahead so the pad carries you a couple platforms
+      const fwd = (Math.abs(this.vx) > 0.5) ? Math.sign(this.vx) : (this.dir || 1);
+      this.bounceFlySpeed = 7.5;                  // boosted horizontal cruise speed (gentle, so you can steer)
+      this.vx = fwd * Math.max(Math.abs(this.vx), this.bounceFlySpeed);
+      this.bounceFly = 120;                       // frames the carry lasts (cleared on landing)
+      this.dir = fwd;
+      this.squash = 0.5;      // strong stretch
+      this.landTimer = 0;
+      this.justLanded = false; // suppress the landing thud from the block above
+      this.justBounced = true;
+    }
 
     // animation phase driven by speed
     const speed = Math.abs(this.vx);
@@ -193,7 +247,11 @@ class Player {
 
     ctx.save();
     ctx.translate(baseX, baseY - 0 + bob);
-    ctx.scale(this.dir * (2 - this.squash), this.squash);
+    // crouch: compress vertically to match the shrunken hitbox (anchored at the feet),
+    // and widen slightly so it reads as a duck rather than just a smaller figure.
+    const hRatio = this.h / this.fullH;        // 1 standing, ~0.31 fully ducked
+    const duckWiden = 1 + (1 - hRatio) * 0.4;
+    ctx.scale(this.dir * (2 - this.squash) * duckWiden, this.squash * hRatio);
 
     // proportions
     const hipY = -34;        // hip joint

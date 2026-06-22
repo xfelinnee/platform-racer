@@ -159,6 +159,10 @@ class Game {
     // movement sfx
     if (p.justJumped) Audio2.sfx.jump();
     if (p.justLanded) Audio2.sfx.land();
+    if (p.justBounced) {
+      Audio2.sfx.jump();
+      if (this.settings.particles) this._burst(p.cx, p.feet, '#39ff88', 14);
+    }
 
     // camera follows with look-ahead
     const targetX = p.x - this.vw * 0.34 + p.vx * 10;
