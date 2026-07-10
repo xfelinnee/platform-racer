@@ -4,21 +4,17 @@ All notable changes to **Platform Racer** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and the
 project follows [Semantic Versioning](https://semver.org/).
 
-## [1.6.0] - 2026-07-09
-
-### Changed
-- **Skins reworked into a "flowing cloth" model.** Every Epic+ skin is now
-  an animated `CanvasGradient` ("cloth") that flows *within* the garment + hat dome, instead
-  of detached emblems/halos/particles floating around the figure. The pattern is a scrolling
-  multi-colour palette plus a narrow bright shimmer band that sweeps across once per loop.
-- **Scope is now Clothes + Hat dome only** — the body always keeps its solid colour. The
-  shop's *Body Colour* card is colours-only again (cloth skins live on the Hat/Clothes cards).
-- **Perfectly seamless loops** for every skin: palette/hue scroll uses an integer `flow`, so
-  the pattern lands exactly back on its start when the loop wraps (no snap/cut). Reactive
-  speed-ups add whole palette-cycles in speed bands so they stay seamless at any constant speed.
-- Skin chips/previews render the live flowing fabric.
+## [1.5.0] - 2026-07-09
 
 ### Added
+- **Bounce pads** — spring-green platforms that launch the player up and gently
+  forward, carrying them across roughly two platforms. Spawn frequency scales
+  with difficulty (Easy 0.04 / Normal 0.05 / Hard 0.05) and ramps in with the
+  rest of the hazards. No spikes spawn on a bounce pad.
+- **Ducking / crouch** — hold `S` or `↓` on the ground to crouch. The collision
+  hitbox shrinks (feet stay planted) so the player can slide under hazards such
+  as laser beams. Smoothly eased in and out, with the figure visually matching
+  the shrunken hitbox.
 - **Achievements** — 16 launch achievements in a data-driven registry (`js/achievements.js`,
   mirroring the `Skins.REGISTRY` pattern so it can be server-validated for multiplayer later):
   distance milestones (100m–10,000m), coins-in-one-run tiers (500–10,000), first death, and
@@ -38,6 +34,23 @@ project follows [Semantic Versioning](https://semver.org/).
 - Re-themed cloth palettes per skin: Liquid Chrome, Holographic, Neon Circuit, Event Horizon,
   Starlight, Frostbite Regalia, Molten Sovereign, Aurora Veil, Glitch Runes.
 
+### Changed
+- **Skins reworked into a "flowing cloth" model.** Every Epic+ skin is now
+  an animated `CanvasGradient` ("cloth") that flows *within* the garment + hat dome, instead
+  of detached emblems/halos/particles floating around the figure. The pattern is a scrolling
+  multi-colour palette plus a narrow bright shimmer band that sweeps across once per loop.
+- **Scope is now Clothes + Hat dome only** — the body always keeps its solid colour. The
+  shop's *Body Colour* card is colours-only again (cloth skins live on the Hat/Clothes cards).
+- **Perfectly seamless loops** for every skin: palette/hue scroll uses an integer `flow`, so
+  the pattern lands exactly back on its start when the loop wraps (no snap/cut). Reactive
+  speed-ups add whole palette-cycles in speed bands so they stay seamless at any constant speed.
+- Skin chips/previews render the live flowing fabric.
+- Bounce-pad launches use a fixed, deterministic velocity and are protected from
+  the variable-jump-height cut, so every bounce reaches the same height
+  regardless of input.
+- Bounce detection is decoupled from `standingOn` (via a dedicated flag in
+  collision), so consecutive/adjacent pads always fire.
+
 ### Fixed
 - Profile screen now shows a **Skins** unlock-progress card (owned / total); previously the
   breakdown listed Colors but omitted skins entirely.
@@ -48,25 +61,6 @@ project follows [Semantic Versioning](https://semver.org/).
   `player._anchors()`/`_hatTopY()` helpers. `Skins.drawOverlay` is kept as a no-op for API
   compatibility. Rare skins (Pulse/Ember/Spectrum) keep their flowing solid-colour treatment,
   now applied to clothes + hat.
-
-## [1.5.0] - 2026-06-22
-
-### Added
-- **Bounce pads** — spring-green platforms that launch the player up and gently
-  forward, carrying them across roughly two platforms. Spawn frequency scales
-  with difficulty (Easy 0.04 / Normal 0.05 / Hard 0.05) and ramps in with the
-  rest of the hazards. No spikes spawn on a bounce pad.
-- **Ducking / crouch** — hold `S` or `↓` on the ground to crouch. The collision
-  hitbox shrinks (feet stay planted) so the player can slide under hazards such
-  as laser beams. Smoothly eased in and out, with the figure visually matching
-  the shrunken hitbox.
-
-### Changed
-- Bounce-pad launches use a fixed, deterministic velocity and are protected from
-  the variable-jump-height cut, so every bounce reaches the same height
-  regardless of input.
-- Bounce detection is decoupled from `standingOn` (via a dedicated flag in
-  collision), so consecutive/adjacent pads always fire.
 
 ## [1.4.0] - 2026-06-22
 

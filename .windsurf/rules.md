@@ -32,7 +32,7 @@
 - Never spawn spikes on elevator or crumbling platforms.
 - Never spawn two laser platforms consecutively (use `_lastLaser` flag).
 - Homing drones are **removed** — do not re-add them.
-- Bounce pads are **removed** — do not re-add them.
+- Bounce pads are **active** — re-added and working since v1.5.0 (spring-green pads; no spikes spawn on them). Do NOT remove.
 - Daily challenge is **removed** — do not re-add it.
 
 ## Building & Releases

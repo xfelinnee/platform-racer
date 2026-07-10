@@ -11,9 +11,11 @@ A fast, neon platformer built with HTML5 Canvas and vanilla JavaScript. Features
   - Customize (quick equip screen)
   - Settings (music/SFX volume, difficulty, particles)
   - Quit Game
-- **Profile & progression system** — multiple profiles, XP leveling, prestige system, persistent stats.
-- **Shop & cosmetics** — unlockable skins, hats (propeller hat enables hover), trails, and gameplay loadout items (double jump, high jump, magnet, etc.).
-- **Bold stickman character** — procedurally animated skeleton with run cycle, jump/fall poses, a crouch/duck, squash & stretch, lean, and a glowing eye.
+- **Profile & progression system** — multiple profiles, XP leveling, prestige system, persistent stats. The profile screen is split into **Overview / Achievements / Collection** tabs.
+- **Achievements** — 16 launch achievements in a data-driven registry: distance milestones, coins-in-one-run tiers, first death, and collection completions. Unlocks award coins + XP and pop as slide-in toasts (including live mid-run).
+- **Shop & cosmetics** — unlockable **flowing-cloth skins**, hats (propeller hat enables hover), trails, and gameplay loadout items (double jump, high jump, magnet, etc.).
+- **Flowing-cloth skins** — Rare / Epic / Legendary / Mythic tiers rendered as an animated gradient that flows *within* the clothes + hat dome. Seamless loops, with Mythic cloths reacting to player speed and airborne state.
+- **Bold stickman character** — procedurally animated skeleton with run cycle, jump/fall poses, a crouch/duck, a **fast drop** slam, squash & stretch, lean, and a glowing eye.
 - **Endless procedural platforming** — generated platforms, gaps, coins, and spikes that scale with difficulty.
 
 ### Obstacles & Hazards
@@ -44,6 +46,7 @@ A fast, neon platformer built with HTML5 Canvas and vanilla JavaScript. Features
 | Move   | `A` / `D` or `←` / `→` |
 | Jump   | `Space`, `W`, or `↑` (hold for higher) |
 | Duck   | `S` or `↓` (crouch to slide under hazards) |
+| Fast drop | `S` or `↓` while airborne (slam down faster) |
 | Sprint | `Shift` |
 | Hover  | Hold `Jump` while falling (requires propeller hat) |
 | Pause  | `Esc` or `P` |
@@ -83,7 +86,9 @@ platform-racer/
     ├── level.js      # procedural platforms, obstacles, coins, collision
     ├── game.js       # loop, camera, particles, parallax, render
     ├── menu.js       # shop, customize, settings, screen switching
-    ├── profiles.js   # profile system, XP, stats, leaderboard
+    ├── profiles.js   # profile system, XP, stats, leaderboard, achievements store
+    ├── skins.js      # flowing-cloth skin registry + gradient rendering
+    ├── achievements.js # data-driven achievements registry + evaluation
     ├── audio.js      # music & sound effects
     └── main.js       # wiring: menu, HUD, pause/game-over
 ```
