@@ -221,6 +221,15 @@ class Game {
     this.maxDist = Math.max(this.maxDist, dist);
     this._updateHud(dist);
 
+    // achievements can pop mid-run (distance / coins-in-run); check ~once per second
+    this._achTick = (this._achTick || 0) + dt;
+    if (this._achTick >= 60) {
+      this._achTick = 0;
+      if (typeof Achievements !== 'undefined') {
+        Achievements.evaluate({ dist: this.maxDist, coins: this.coins });
+      }
+    }
+
     this._updateParticles(dt);
   }
 

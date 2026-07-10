@@ -9,6 +9,36 @@
 
 ---
 
+## 0. CURRENT MODEL (v1.6.0) — "flowing cloth" ✅ SHIPPED
+
+The zone-overlay/emblem approach (Sections 3–4 below, kept for history) was **scrapped**:
+detached emblems, halos and particles floated around the stick figure and read as
+clip-art rather than clothing. The shipped model is **flowing animated cloth**:
+
+- A skin is an animated **`CanvasGradient`** painted as the `strokeStyle`/`fillStyle` of the
+  garment + hat dome, so the pattern flows *inside the clothing shape*. The body keeps its
+  solid colour (**scope = clothes + hat dome only**).
+- `Skins.resolvePaint(skin, t, ctx, box, motion)` builds the gradient via a single generic
+  builder (`samplePalette` + scrolling palette/hue + a once-per-loop shimmer band).
+  - **Rare** (Pulse/Ember/Spectrum): flowing solid colour via `resolveHex` (unchanged).
+  - **Epic+** (`kind:'cloth'`): flowing gradient with a `params` palette (or `hue` mode).
+- **Seamless loops:** the scroll rate `flow` is forced to an **integer**, so palette/hue
+  return exactly to the start when `ph` wraps. Reactive cloths add whole palette-cycles in
+  speed bands (`+round(spd*2)`), staying integer (seamless) at any constant speed.
+- **Edge glow** (`params.glow`) on Legendary/Mythic via `ctx.shadowColor/Blur`, applied to the
+  fabric only. `_drawHat` clears the shadow before the propeller so the **spinner is never lit**.
+- **Reactive Mythics** read live `motion` from `player._skinMotion = {speed, airborne, ...}`:
+  faster flow + stronger shimmer at speed; *Glitch Runes* jitters while airborne.
+- `Skins.drawOverlay()` is now a **no-op** (kept for call-site compatibility); the old overlay
+  helper functions remain as dead code pending a cleanup pass. `player._anchors()`/`_hatTopY()`
+  are unused.
+
+Touch-points: `js/skins.js` (registry + `resolvePaint`/`samplePalette` + `glowColor`),
+`js/player.js` (`draw()` paints clothes/hat with the gradient + glow; body stays solid),
+`js/menu.js` (Body card is colours-only; previews show the live fabric).
+
+---
+
 ## 1. How the current system works (ground truth)
 
 Touch-points discovered in the codebase:
@@ -143,7 +173,7 @@ Implemented purely as time-varying hex; zero render refactor. Pricing CONFIRMED
 - [x] **Holographic** — diagonal iridescent rainbow foil. loop 4s. scope all. *placeholder 1800g*
 - Note: depth accents (shade()-derived) stay solid under a gradient — acceptable; revisit if needed.
 
-### Phase 3 — Tier C: ~~texture skins~~ → ZONE-OVERLAY skins (Epic/Legendary)  ✅ REWORKED
+### Phase 3 — Tier C: ~~texture skins~~ → ~~ZONE-OVERLAY skins~~ (Epic/Legendary)  ⚠️ SUPERSEDED by §0 cloth model
 **Texture/pattern approach was scrapped** — full-surface noise reads as mud on a tiny
 2D figure and details vanish on small hat/clothes shapes. Replaced with a
 **zone-overlay system**: themed base colour + crisp focal art on named zones.
@@ -156,7 +186,7 @@ Implemented purely as time-varying hex; zero render refactor. Pricing CONFIRMED
 - [x] **Frostbite Regalia** (legendary, NEW) — faceted crystal, sweeping glint, frost burst/loop. loop 6s. *6000g*
 - Design rule locked: one focal point, large clean shapes, one signature once-per-loop moment.
 
-### Phase 4 — Mythic: reactive FX-stacked skins  ✅ DONE (pricing TBD)
+### Phase 4 — Mythic: ~~reactive FX-stacked overlays~~ → reactive cloths  ⚠️ SUPERSEDED by §0 (reactivity now lives in the cloth gradient)
 Built on the zone-overlay system; `player` passes live motion via `anchors.motion`
 (`{ speed, airborne, vy, grounded }`) so overlays react in real time. Procedural,
 stateless particles (derived from `t`) — no per-frame allocation.

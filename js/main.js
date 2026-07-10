@@ -30,6 +30,9 @@
   game.resize();
   window.addEventListener('resize', () => game.resize());
 
+  // Achievement unlocks (from anywhere: mid-run, run end, shop) pop as toasts.
+  if (typeof Achievements !== 'undefined') Achievements.setOnUnlock(showAchievementToasts);
+
   function startGame() {
     game.settings = Settings.data; // pick up latest settings
     Screens.hideAll();
@@ -129,6 +132,9 @@
     Profiles.setCurrent(name);
     updateChip();
     toMenu();
+    // veteran profiles may already qualify for achievements added later
+    if (typeof Achievements !== 'undefined') Achievements.evaluate();
+    updateChip();
   }
   document.querySelector('#login [data-action="create"]').addEventListener('click', () => {
     const input = document.getElementById('newProfileName');
@@ -224,6 +230,8 @@
     },
   };
   function refreshShop() {
+    // purchases can complete a collection — evaluate before re-rendering balances
+    if (typeof Achievements !== 'undefined') Achievements.evaluate();
     renderShop(shopTab, shopHandlers);
     updateChip();
   }
@@ -242,8 +250,26 @@
   document.querySelector('#shop .back-btn').addEventListener('click', () => Screens.show('menu'));
 
   // ---- PROFILE ----
-  function openProfile() {
+  const PROFILE_PANES = {
+    overview: 'profileTabOverview',
+    achievements: 'profileTabAchievements',
+    collection: 'profileTabCollection',
+  };
+  function setProfileTab(tab) {
+    if (!PROFILE_PANES[tab]) tab = 'overview';
+    document.querySelectorAll('#profileTabs .shop-tab').forEach((b) =>
+      b.classList.toggle('on', b.dataset.tab === tab));
+    for (const k in PROFILE_PANES) {
+      document.getElementById(PROFILE_PANES[k]).style.display = (k === tab) ? '' : 'none';
+    }
+  }
+  document.getElementById('profileTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.shop-tab');
+    if (btn) setProfileTab(btn.dataset.tab);
+  });
+  function openProfile(tab) {
     renderProfile();
+    setProfileTab(tab || 'overview');
     Screens.show('profile');
   }
   document.querySelector('#profile .back-btn').addEventListener('click', () => Screens.show('menu'));
@@ -341,6 +367,8 @@
     // award XP from the run: distance + a bonus per coin
     const xpGain = dist + coins * 2;
     const xpRes = Profiles.addXp(xpGain);
+    // final sweep for anything the mid-run checks missed (best/bestRunCoins now saved)
+    if (typeof Achievements !== 'undefined') Achievements.evaluate();
     updateChip();
     if (isBest) document.getElementById('hudBest').textContent = dist;
     const net = coins - (penalty || 0);
@@ -383,8 +411,9 @@
     else if (action === 'quit') quitGame();
   });
 
-  // Customize button lives in the menu character panel, outside .menu-buttons
+  // Customize + Achievements buttons live in the menu character panel, outside .menu-buttons
   document.querySelector('#menu .mc-customize').addEventListener('click', openCustomize);
+  document.querySelector('#menu .mc-achievements').addEventListener('click', () => openProfile('achievements'));
 
   // ---- SWITCH PROFILE (chip) ----
   document.getElementById('profileChip').addEventListener('click', (e) => {

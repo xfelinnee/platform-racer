@@ -126,7 +126,11 @@ class Player {
 
     // asymmetric gravity: lighter going up, slightly more coming down for a smooth arc
     this.vy += (this.vy < 0 ? this.gravity : this.fallGravity);
-    if (this.vy > 15) this.vy = 15;
+    // fast drop: hold Down in the air to slam down faster (extra pull + higher fall cap)
+    this.fastDropping = !this.onGround && Input.held('duck');
+    if (this.fastDropping) this.vy += 1.2;
+    const vyCap = this.fastDropping ? 24 : 15;
+    if (this.vy > vyCap) this.vy = vyCap;
 
     // propeller hat: hold Jump (W) in the air while falling to hover / slow-fall
     this.hovering = false;
@@ -216,7 +220,8 @@ class Player {
     t = t || 0;
     // resolve animated skins → effective colours (skin wins over the solid colour/tint)
     const S = (typeof Skins !== 'undefined') ? Skins : null;
-    this._effBody = (S && this.bodySkin) ? (S.resolveHex(S.byId(this.bodySkin), t) || this.bodyColor) : this.bodyColor;
+    // cloth skins paint the clothes + hat dome only — the body keeps its solid colour
+    this._effBody = this.bodyColor;
     this._effHatTint = (S && this.hatSkin) ? (S.resolveHex(S.byId(this.hatSkin), t) || this.hatTint) : this.hatTint;
     this._effClothesTint = (S && this.clothesSkin) ? (S.resolveHex(S.byId(this.clothesSkin), t) || this.clothesTint) : this.clothesTint;
     this._skinTime = t;
@@ -313,21 +318,15 @@ class Player {
     const elR = jointArm(shoulder, rArm, armLen);
     const haR = jointArm(elR, rArm + rFore, armLen);
 
-    // head centre (hoisted so skin overlays can anchor to it)
+    // head centre
     const headY = neckY - headR + 1;
-    // shared anchor set for skin zone overlays (+ live motion for reactive skins)
-    const skinA = this._anchors(shoulder, hip, headY, headR, neckY);
-    skinA.motion = { speed, airborne, vy: this.vy, grounded: this.onGround };
-    // body colour scheme (derive mid & dark tones from the bright base)
+    // live motion drives reactive (Mythic) cloth skins — flow speed + shimmer
+    this._skinMotion = { speed, airborne, vy: this.vy, grounded: this.onGround };
+    // body colour scheme (derive mid & dark tones) — the body always stays solid
     const baseHex = this._effBody || this.bodyColor;
     const mid = shade(baseHex, 0.62);
     const dark = shade(baseHex, 0.4);
-    // gradient ("paint") skins override the bright front pieces with a CanvasGradient
-    // built in THIS transformed space (head ~ -82, feet ~ 0).
-    const bodyPaint = (this._S && this.bodySkin)
-      ? this._S.resolvePaint(this._S.byId(this.bodySkin), this._skinTime, ctx, { x0: -16, y0: -82, x1: 16, y1: 2 })
-      : null;
-    const bright = bodyPaint || baseHex;
+    const bright = baseHex;
 
     // --- DRAW (back limbs first for depth) ---
     ctx.lineCap = 'round';
@@ -358,15 +357,15 @@ class Player {
 
     // equipped clothes — drawn AFTER the limbs so trousers/skirts cover the legs & hip
     if (this.clothes) {
-      const clothesPaint = (this._S && this.clothesSkin)
-        ? this._S.resolvePaint(this._S.byId(this.clothesSkin), this._skinTime, ctx, { x0: -14, y0: -58, x1: 14, y1: 2 })
+      const cSkin = (this._S && this.clothesSkin) ? this._S.byId(this.clothesSkin) : null;
+      const clothesPaint = cSkin
+        ? this._S.resolvePaint(cSkin, this._skinTime, ctx, { x0: -14, y0: -58, x1: 14, y1: 2 }, this._skinMotion)
         : null;
+      const glow = cSkin ? this._S.glowColor(cSkin) : null;
+      ctx.save();
+      if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = 6; }
       this._drawClothes(ctx, { hip, shoulder, knL, ftL, knR, ftR, elL, haL, elR, haR }, clothesPaint || this._effClothesTint);
-    }
-
-    // legendary/epic zone overlay for the CLOTHES slot (crisp focal art on top)
-    if (this._S && this.clothes && this.clothesSkin) {
-      this._S.drawOverlay(this._S.byId(this.clothesSkin), 'clothes', ctx, this._skinTime, skinA);
+      ctx.restore();
     }
 
     // head with neck
@@ -391,49 +390,20 @@ class Player {
     ctx.fillStyle = '#ffffff';
     ctx.fill();
 
-    // body-slot zone overlay (core identity art on the bare figure)
-    if (this._S && this.bodySkin) {
-      this._S.drawOverlay(this._S.byId(this.bodySkin), 'body', ctx, this._skinTime, skinA);
-    }
-
-    // equipped hat
+    // equipped hat — the cloth paints the dome only (the propeller is left alone)
     if (this.hat) {
-      const hatPaint = (this._S && this.hatSkin)
-        ? this._S.resolvePaint(this._S.byId(this.hatSkin), this._skinTime, ctx, { x0: -14, y0: -86, x1: 14, y1: -56 })
+      const hSkin = (this._S && this.hatSkin) ? this._S.byId(this.hatSkin) : null;
+      const hatPaint = hSkin
+        ? this._S.resolvePaint(hSkin, this._skinTime, ctx, { x0: -14, y0: -86, x1: 14, y1: -56 }, this._skinMotion)
         : null;
+      const glow = hSkin ? this._S.glowColor(hSkin) : null;
+      ctx.save();
+      if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = 6; }
       this._drawHat(ctx, headY, headR, hatPaint || this._effHatTint);
-      // hat-slot zone overlay (band emblem + floating halo) on top of the hat
-      if (this._S && this.hatSkin) {
-        skinA.hatTopY = this._hatTopY(headY, headR);
-        this._S.drawOverlay(this._S.byId(this.hatSkin), 'hat', ctx, this._skinTime, skinA);
-      }
+      ctx.restore();
     }
 
     ctx.restore();
-  }
-
-  // Named anchor points (player local space) for skin zone overlays.
-  _anchors(shoulder, hip, headY, headR, neckY) {
-    return {
-      chest: { x: 0, y: (shoulder.y + hip.y) / 2 },
-      shoulder: { x: shoulder.x, y: shoulder.y },
-      shoulderL: { x: -5, y: shoulder.y + 1 },
-      shoulderR: { x: 5, y: shoulder.y + 1 },
-      hip: { x: hip.x, y: hip.y },
-      headY, headR, neckY,
-      crownY: headY - headR,
-      hatTopY: headY - headR - 2,
-      hemY: -12,
-    };
-  }
-
-  // Topmost y of the equipped hat (where a floating halo should sit above it).
-  _hatTopY(headY, headR) {
-    const crownY = headY - headR;
-    if (this.hat === 'topHat') return crownY - 16;
-    if (this.hat === 'propHat') return crownY - 9;
-    if (this.hat === 'goldCowboy') return crownY - 2;
-    return crownY - 2;
   }
 
   // ---- COSMETIC: HATS ----
@@ -470,7 +440,8 @@ class Player {
       ctx.beginPath();
       ctx.ellipse(headR * 0.55, topY + 2, headR * 0.7, 2.4, 0, 0, Math.PI * 2);
       ctx.fill();
-      // stalk + hub
+      // stalk + hub — clear any cloth edge-glow so the propeller is never tinted/lit
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
       const hubY = topY - headR - 4;
       ctx.strokeStyle = '#2a2f3a'; ctx.lineWidth = 2.2;
       ctx.beginPath(); ctx.moveTo(0, topY - headR + 1); ctx.lineTo(0, hubY + 1); ctx.stroke();

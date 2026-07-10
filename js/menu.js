@@ -304,17 +304,15 @@ function makeModeToggle(mode, onColors, onSkins) {
   return wrap;
 }
 
-// Colours tab: pick the active body colour + preview/buy new palette colours, OR
-// switch to animated Skins.
+// Colours tab: pick the active body colour + preview/buy new palette colours.
+// (Cloth skins live on the Hats/Clothes cards — the body is always a solid colour.)
 function renderColorsTab(p, itemsEl, handlers) {
-  const mode = shopMode('body');
   const activeBody = Profiles.bodyColorId();
   // if the previewed colour is now owned (or invalid), clear the preview
   if (_shopColorPreview && Profiles.ownsColor(_shopColorPreview)) _shopColorPreview = null;
 
   const previewCol = _shopColorPreview ? Profiles.colorCatalogue().find(c => c.id === _shopColorPreview) : null;
   const previewHex = previewCol ? previewCol.hex : Profiles.bodyColorHex();
-  const skinPrev = (_skinPreviewKey === 'body') ? _skinPreviewId : null;
 
   // body preview card — keeps equipped hat/clothes, shows previewed colour/skin on the body
   const card = document.createElement('div');
@@ -324,39 +322,16 @@ function renderColorsTab(p, itemsEl, handlers) {
     `<div class="si-info"><h3>Body Colour</h3><p class="cc-desc"></p><div class="si-colors palette"></div><div class="si-buy-row"></div></div>`;
 
   const opts = equippedPreviewOpts(0.85);
-  if (mode === 'skins') {
-    // preview the previewed/equipped body skin
-    if (skinPrev) { opts.bodySkin = skinPrev; opts.body = Skins.byId(skinPrev).baseHex; }
-  } else {
-    opts.bodySkin = null;          // solid-colour preview
-    opts.body = previewHex;
-  }
+  opts.bodySkin = null;            // the body is always a solid colour (cloths go on clothes + hat)
+  opts.body = previewHex;
   drawCosmeticPreview(card.querySelector('.si-preview'), opts);
 
-  card.querySelector('.cc-desc').textContent = mode === 'skins'
-    ? 'Animated body materials. Tap a locked skin to preview it, then buy.'
-    : 'Pick a scheme for your racer. Tap a locked colour to preview it, then buy.';
-
-  // toggle
-  const info = card.querySelector('.si-info');
-  info.insertBefore(makeModeToggle(mode,
-    () => { _shopMode.body = 'colors'; resetSkinPreview(); handlers.refreshColors(); },
-    () => { _shopMode.body = 'skins'; _shopColorPreview = null; handlers.refreshColors(); }
-  ), info.querySelector('.cc-desc').nextSibling);
+  card.querySelector('.cc-desc').textContent =
+    'Pick a scheme for your racer. Tap a locked colour to preview it, then buy.';
 
   const row = card.querySelector('.palette');
 
-  if (mode === 'skins') {
-    buildSkinsPicker(row, p, {
-      key: 'body', slot: 'body',
-      activeSkinId: Profiles.bodySkinId(),
-      ownsSkin: (id) => Profiles.ownsSkin(id),
-      onEquip: (id) => handlers.setBodySkin(id),
-      onBuy: (id) => handlers.buySkin(id),
-      refresh: () => handlers.refreshColors(),
-      onPreview: () => {},
-    });
-  } else {
+  {
     for (const col of Profiles.colorCatalogue()) {
       const owned = Profiles.ownsColor(col.id);
       if (owned) {
@@ -625,7 +600,7 @@ function equippedPreviewOpts(scale) {
     hatTint: hat ? Profiles.itemColorHex('hat', hat) : null,
     clothesTint: clothes ? Profiles.itemColorHex('clothes', clothes) : null,
     body: Profiles.bodyColorHex(),
-    bodySkin: Profiles.bodySkinId(),
+    bodySkin: null, // cloths render on clothes + hat dome only; the body stays solid
     hatSkin: hat ? Profiles.itemSkinId('hat', hat) : null,
     clothesSkin: clothes ? Profiles.itemSkinId('clothes', clothes) : null,
     scale,
@@ -774,6 +749,7 @@ function renderProfile() {
     { label: 'Hats', c: counts.hats },
     { label: 'Clothes', c: counts.clothes },
     { label: 'Colors', c: counts.colors },
+    { label: 'Skins', c: counts.skins },
     { label: 'Trails', c: counts.trails },
     { label: 'Buffs', c: counts.buffs },
   ];
@@ -791,6 +767,63 @@ function renderProfile() {
     d.querySelector('.unlock-fill').style.width = pct + '%';
     uEl.appendChild(d);
   }
+
+  renderAchievements(p);
+}
+
+// ---------- ACHIEVEMENTS (profile badges + unlock toasts) ----------
+function renderAchievements(p) {
+  const el = document.getElementById('profileAchievements');
+  if (!el || typeof Achievements === 'undefined') return;
+  const own = p.achievements || {};
+  const cts = Achievements.counts();
+  const head = document.getElementById('profileAchHead');
+  if (head) head.textContent = `Achievements  (${cts.owned} / ${cts.total})`;
+  el.innerHTML = '';
+  for (const a of Achievements.list()) {
+    const got = !!own[a.id];
+    const d = document.createElement('div');
+    d.className = 'ach-card' + (got ? ' got' : '');
+    d.innerHTML =
+      `<div class="ach-medal"><span class="ach-medal-mark"></span></div>` +
+      `<div class="ach-info">` +
+        `<span class="ach-name"></span>` +
+        `<span class="ach-desc"></span>` +
+        `<span class="ach-reward"></span>` +
+      `</div>`;
+    d.querySelector('.ach-medal-mark').textContent = got ? '\u2713' : '?';
+    d.querySelector('.ach-name').textContent = a.name;
+    d.querySelector('.ach-desc').textContent = a.desc;
+    d.querySelector('.ach-reward').textContent = got
+      ? 'Unlocked ' + new Date(own[a.id]).toLocaleDateString()
+      : `+${a.reward.coins} coins \u00b7 +${a.reward.xp} XP`;
+    el.appendChild(d);
+  }
+}
+
+// Stacked slide-in toasts for freshly unlocked achievements.
+function showAchievementToasts(list) {
+  const host = document.getElementById('achToasts');
+  if (!host || !list || !list.length) return;
+  list.forEach((a, i) => {
+    setTimeout(() => {
+      const d = document.createElement('div');
+      d.className = 'ach-toast';
+      d.innerHTML =
+        `<div class="ach-medal got"><span class="ach-medal-mark">\u2713</span></div>` +
+        `<div class="ach-toast-body">` +
+          `<span class="ach-toast-title">Achievement Unlocked</span>` +
+          `<span class="ach-toast-name"></span>` +
+          `<span class="ach-toast-reward"></span>` +
+        `</div>`;
+      d.querySelector('.ach-toast-name').textContent = a.name;
+      d.querySelector('.ach-toast-reward').textContent = `+${a.reward.coins} coins \u00b7 +${a.reward.xp} XP`;
+      host.appendChild(d);
+      if (typeof Audio2 !== 'undefined') Audio2.sfx.coin();
+      setTimeout(() => d.classList.add('out'), 4200);
+      setTimeout(() => d.remove(), 4800);
+    }, i * 900);
+  });
 }
 
 function renderLeaderboard() {

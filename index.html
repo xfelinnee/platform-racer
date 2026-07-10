@@ -50,6 +50,10 @@
           <span class="btn-label">Customize</span>
           <span class="btn-glow"></span>
         </button>
+        <button class="btn mc-achievements" data-action="achievements">
+          <span class="btn-label">Achievements</span>
+          <span class="btn-glow"></span>
+        </button>
       </div>
       <div class="menu-content">
         <h1 class="title">
@@ -101,7 +105,7 @@
             <span class="btn-glow"></span>
           </button>
         </nav>
-        <footer class="credits"><span id="verTag">v1.5.0</span> &middot; Use A/D or Arrow Keys &middot; Space to Jump &middot; S to Duck</footer>
+        <footer class="credits"><span id="verTag">v1.6.0</span> &middot; Use A/D or Arrow Keys &middot; Space to Jump &middot; S to Duck</footer>
       </div>
     </section>
 
@@ -159,11 +163,24 @@
           <span class="profile-name" id="profileName">Player</span>
           <span class="profile-rank" id="profileRank">Level 1</span>
         </div>
-        <div id="profileStats" class="profile-stats"></div>
-        <h3 class="profile-subhead">Top Runs</h3>
-        <div id="profileLeaderboard" class="profile-leaderboard"></div>
-        <h3 class="profile-subhead">Collection</h3>
-        <div id="profileUnlocks" class="profile-unlocks"></div>
+        <div class="shop-tabs profile-tabs" id="profileTabs">
+          <button class="shop-tab on" data-tab="overview">Overview</button>
+          <button class="shop-tab" data-tab="achievements">Achievements</button>
+          <button class="shop-tab" data-tab="collection">Collection</button>
+        </div>
+        <div id="profileTabOverview" class="profile-tabpane">
+          <div id="profileStats" class="profile-stats"></div>
+          <h3 class="profile-subhead">Top Runs</h3>
+          <div id="profileLeaderboard" class="profile-leaderboard"></div>
+        </div>
+        <div id="profileTabAchievements" class="profile-tabpane" style="display:none">
+          <h3 class="profile-subhead" id="profileAchHead">Achievements</h3>
+          <div id="profileAchievements" class="profile-achievements"></div>
+        </div>
+        <div id="profileTabCollection" class="profile-tabpane" style="display:none">
+          <h3 class="profile-subhead">Collection</h3>
+          <div id="profileUnlocks" class="profile-unlocks"></div>
+        </div>
         <button class="btn back-btn" data-action="back"><span class="btn-label">Back</span><span class="btn-glow"></span></button>
       </div>
     </section>
@@ -211,6 +228,9 @@
         </button>
       </div>
     </section>
+
+    <!-- ACHIEVEMENT TOASTS (works over menus and gameplay) -->
+    <div id="achToasts" class="ach-toasts"></div>
 
     <!-- IN-GAME HUD -->
     <div id="hud" class="hud">
@@ -269,6 +289,7 @@
   <script src="js/audio.js"></script>
   <script src="js/skins.js"></script>
   <script src="js/profiles.js"></script>
+  <script src="js/achievements.js"></script>
   <script src="js/input.js"></script>
   <script src="js/player.js"></script>
   <script src="js/level.js"></script>

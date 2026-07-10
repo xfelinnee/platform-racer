@@ -94,7 +94,8 @@ const Profiles = (() => {
       coinDoublerArmed: false,       // bring a coin doubler into the next run
       trails: {},                    // owned trail ids
       equippedTrail: null,           // active trail id
-      stats: { runs: 0, coinsCollected: 0, playMs: 0 }, // lifetime totals
+      stats: { runs: 0, coinsCollected: 0, playMs: 0, bestRunCoins: 0 }, // lifetime totals
+      achievements: {},              // { achievementId: ISO date unlocked }
       level: 1,
       xp: 0,
       prestige: 0,
@@ -127,6 +128,8 @@ const Profiles = (() => {
     if (!p.trails) p.trails = {};
     if (p.equippedTrail === undefined) p.equippedTrail = null;
     if (!p.stats) p.stats = { runs: 0, coinsCollected: 0, playMs: 0 };
+    if (typeof p.stats.bestRunCoins !== 'number') p.stats.bestRunCoins = 0;
+    if (!p.achievements) p.achievements = {};
     if (typeof p.level !== 'number') p.level = 1;
     if (typeof p.xp !== 'number') p.xp = 0;
     if (typeof p.prestige !== 'number') p.prestige = 0;
@@ -209,6 +212,7 @@ const Profiles = (() => {
     p.stats.runs += 1;
     p.stats.coinsCollected += Math.max(0, coins);
     p.stats.playMs += Math.max(0, playMs);
+    if (coins > p.stats.bestRunCoins) p.stats.bestRunCoins = coins;
     let isBest = false;
     if (dist > p.best) {
       p.best = dist;
@@ -334,10 +338,12 @@ const Profiles = (() => {
     if (!p) return null;
     ensure(p);
     const ow = id => !!p.owned[id];
+    const skinList = (typeof Skins !== 'undefined') ? Skins.list() : [];
     return {
       hats:    { owned: HATS.filter(h => p.cosmetics.hats[h.id]).length, total: HATS.length },
       clothes: { owned: CLOTHES.filter(c => p.cosmetics.clothes[c.id]).length, total: CLOTHES.length },
       colors:  { owned: COLORS.filter(c => p.colorsOwned[c.id]).length, total: COLORS.length },
+      skins:   { owned: skinList.filter(s => (p.skinsOwned || {})[s.id]).length, total: skinList.length },
       trails:  { owned: TRAILS.filter(t => p.trails[t.id]).length, total: TRAILS.length },
       buffs:   { owned: UPGRADES.filter(u => ow (u.id)).length, total: UPGRADES.length },
     };
