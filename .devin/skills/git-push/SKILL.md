@@ -1,3 +1,11 @@
+---
+name: git-push
+description: Push committed changes to origin master
+triggers:
+  - user
+  - model
+---
+
 # Skill: git-push
 
 Push committed changes to the remote repository.

@@ -1,3 +1,11 @@
+---
+name: git-pull
+description: Pull the latest changes from origin master
+triggers:
+  - user
+  - model
+---
+
 # Skill: git-pull
 
 Pull the latest code from the remote repository.
