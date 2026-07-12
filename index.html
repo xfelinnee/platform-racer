@@ -105,7 +105,34 @@
             <span class="btn-glow"></span>
           </button>
         </nav>
-        <footer class="credits"><span id="verTag">v1.6.1</span> &middot; Use A/D or Arrow Keys &middot; W / &uarr; to Jump &middot; S to Duck</footer>
+        <footer class="credits"><span id="verTag">v1.6.2</span> &middot; <span id="controlHint">Use A/D or Arrow Keys &middot; W / &uarr; to Jump &middot; S to Duck</span></footer>
+      </div>
+      <aside class="latest-update" id="latestUpdate">
+        <div class="lu-head">
+          <span class="lu-eyebrow">LATEST UPDATE</span>
+          <span class="lu-badge" id="luBadge">NEW</span>
+        </div>
+        <h3 class="lu-title" id="luTitle"></h3>
+        <ul class="lu-list" id="luList"></ul>
+        <button class="btn lu-btn" data-action="whatsnew">
+          <span class="btn-label">View Patch Notes</span>
+          <span class="btn-glow"></span>
+        </button>
+      </aside>
+    </section>
+
+    <!-- WHAT'S NEW / PATCH HISTORY -->
+    <section id="whatsnew" class="screen">
+      <div class="menu-bg">
+        <div class="grid-floor"></div>
+      </div>
+      <div class="panel whatsnew-panel">
+        <h2 class="panel-title">WHAT'S NEW</h2>
+        <div class="wn-body">
+          <div class="wn-list" id="wnList"></div>
+          <div class="wn-detail nav-scroll" id="wnDetail" tabindex="-1"></div>
+        </div>
+        <button class="btn back-btn" data-action="back"><span class="btn-label">Back</span><span class="btn-glow"></span></button>
       </div>
     </section>
 
@@ -433,6 +460,7 @@
 
   <script src="js/audio.js"></script>
   <script src="js/skins.js"></script>
+  <script src="js/patch-notes.js"></script>
   <script src="js/profiles.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/input.js"></script>
@@ -440,6 +468,7 @@
   <script src="js/level.js"></script>
   <script src="js/game.js"></script>
   <script src="js/menu.js"></script>
+  <script src="js/menunav.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

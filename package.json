@@ -1,7 +1,7 @@
 {
   "name": "platform-racer",
   "productName": "Platform Racer",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "A fast neon platformer with profiles, a coin shop, and (soon) multiplayer.",
   "author": {
     "name": "Max Stupin"

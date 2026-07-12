@@ -69,16 +69,31 @@
     maybeShowTutorialTip();
   }
 
+  // Control-hint text (menu footer + run-start tip) adapts to the active device:
+  // real key bindings on keyboard, controller button names on a gamepad.
+  function controlHintText() {
+    if (Input.inputMode && Input.inputMode() === 'controller') {
+      const ps = Input.padType && Input.padType() === 'playstation';
+      return `Move Left Stick / D-Pad  \u00b7  Jump ${ps ? '\u2715' : 'A'}  \u00b7  Duck ${ps ? '\u25CB' : 'B'}  \u00b7  Pause Start`;
+    }
+    const kb = Settings.data.keybinds || Input.getBindings();
+    const primary = (a) => keyLabel((kb[a] || [])[0]);
+    return `Move ${primary('left')} / ${primary('right')}  \u00b7  Jump ${primary('jump')}  \u00b7  Duck ${primary('duck')}`;
+  }
+  function refreshControlHints() {
+    const foot = document.getElementById('controlHint');
+    if (foot) foot.textContent = controlHintText();
+  }
+  refreshControlHints();
+  if (Input.onInputModeChange) Input.onInputModeChange(refreshControlHints);
+
   // Brief control hint at the start of a run (General > Show Tutorial Tips).
   let _tipTimer = null;
   function maybeShowTutorialTip() {
     const tip = document.getElementById('tutorialTip');
     if (!tip) return;
     if (!Settings.data.tutorialTips) { tip.classList.remove('show'); return; }
-    // reflect the player's actual key bindings rather than hard-coded keys
-    const kb = Settings.data.keybinds || Input.getBindings();
-    const primary = (a) => keyLabel((kb[a] || [])[0]);
-    tip.textContent = `Move ${primary('left')} / ${primary('right')}  \u00b7  Jump ${primary('jump')}  \u00b7  Duck ${primary('duck')}`;
+    tip.textContent = controlHintText();
     tip.classList.add('show');
     if (_tipTimer) clearTimeout(_tipTimer);
     _tipTimer = setTimeout(() => { tip.classList.remove('show'); _tipTimer = null; }, 4500);
@@ -344,6 +359,136 @@
   }
   document.querySelector('#customize .back-btn').addEventListener('click', () => { Screens.show('menu'); renderMenuCharacter(); });
 
+  // ---- WHAT'S NEW / PATCH NOTES ----
+  const LAST_SEEN_KEY = 'platformRacerLastSeenPatchNotes';
+  function latestVersion() { return PatchNotes.latest().version; }
+  function patchNotesUnread() {
+    try { return localStorage.getItem(LAST_SEEN_KEY) !== latestVersion(); }
+    catch (e) { return true; }
+  }
+  function markPatchNotesSeen() {
+    try { localStorage.setItem(LAST_SEEN_KEY, latestVersion()); } catch (e) { /* ignore */ }
+  }
+  // Main-menu Latest Update card: newest release only, with an unread glow/badge.
+  function renderLatestUpdate() {
+    const card = document.getElementById('latestUpdate');
+    if (!card) return;
+    const rel = PatchNotes.latest();
+    document.getElementById('luTitle').textContent = `v${rel.version} \u2014 ${rel.title}`;
+    const list = document.getElementById('luList');
+    list.innerHTML = '';
+    const points = (rel.highlights && rel.highlights.length)
+      ? rel.highlights
+      : firstCategoryItems(rel, 3);
+    for (const p of points) {
+      const li = document.createElement('li');
+      li.textContent = p;
+      list.appendChild(li);
+    }
+    card.classList.toggle('unread', patchNotesUnread());
+  }
+  // Fallback bullets when a release has no explicit highlights.
+  function firstCategoryItems(rel, n) {
+    const out = [];
+    for (const [key] of PatchNotes.CATEGORY_ORDER) {
+      const items = rel.categories[key];
+      if (!items) continue;
+      for (const it of items) { out.push(it); if (out.length >= n) return out; }
+    }
+    return out;
+  }
+
+  let wnSelected = null;
+  function renderWhatsNewDetail(version) {
+    const rel = PatchNotes.find(version);
+    const detail = document.getElementById('wnDetail');
+    if (!rel || !detail) return;
+    wnSelected = version;
+    document.querySelectorAll('#wnList .wn-ver').forEach((b) =>
+      b.classList.toggle('on', b.dataset.version === version));
+    detail.innerHTML = '';
+    detail.scrollTop = 0;
+
+    const head = document.createElement('div');
+    head.className = 'wn-d-head';
+    const ver = document.createElement('span');
+    ver.className = 'wn-d-version';
+    ver.textContent = `v${rel.version}`;
+    const title = document.createElement('span');
+    title.className = 'wn-d-title';
+    title.textContent = rel.title;
+    head.appendChild(ver);
+    head.appendChild(title);
+    detail.appendChild(head);
+
+    if (rel.date) {
+      const date = document.createElement('div');
+      date.className = 'wn-d-date';
+      date.textContent = formatPatchDate(rel.date);
+      detail.appendChild(date);
+    }
+    if (rel.summary) {
+      const sum = document.createElement('p');
+      sum.className = 'wn-d-summary';
+      sum.textContent = rel.summary;
+      detail.appendChild(sum);
+    }
+    // Render only non-empty categories, in the canonical order.
+    for (const [key, label] of PatchNotes.CATEGORY_ORDER) {
+      const items = rel.categories[key];
+      if (!items || !items.length) continue;
+      const block = document.createElement('div');
+      block.className = 'wn-cat';
+      const h = document.createElement('div');
+      h.className = 'wn-cat-head';
+      h.textContent = label;
+      const ul = document.createElement('ul');
+      ul.className = 'wn-cat-list';
+      for (const it of items) {
+        const li = document.createElement('li');
+        li.textContent = it;
+        ul.appendChild(li);
+      }
+      block.appendChild(h);
+      block.appendChild(ul);
+      detail.appendChild(block);
+    }
+  }
+  function formatPatchDate(iso) {
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d)) return iso;
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  function buildWhatsNewList() {
+    const list = document.getElementById('wnList');
+    if (!list || list.childElementCount) return; // build once, order is static
+    for (const rel of PatchNotes.releases) {
+      const btn = document.createElement('button');
+      btn.className = 'wn-ver';
+      btn.dataset.version = rel.version;
+      const num = document.createElement('span');
+      num.className = 'wn-ver-num';
+      num.textContent = `v${rel.version}`;
+      const t = document.createElement('span');
+      t.className = 'wn-ver-title';
+      t.textContent = rel.title;
+      btn.appendChild(num);
+      btn.appendChild(t);
+      btn.addEventListener('click', () => { Audio2.sfx.ui(); renderWhatsNewDetail(rel.version); });
+      list.appendChild(btn);
+    }
+  }
+  function openWhatsNew() {
+    buildWhatsNewList();
+    renderWhatsNewDetail(latestVersion()); // default to newest release
+    markPatchNotesSeen();
+    renderLatestUpdate(); // clears the unread glow/badge
+    Screens.show('whatsnew');
+  }
+  document.querySelector('#menu .lu-btn').addEventListener('click', openWhatsNew);
+  document.querySelector('#whatsnew .back-btn').addEventListener('click', () => Screens.show('menu'));
+  renderLatestUpdate();
+
   const resumeBtn = overlay.querySelector('[data-action="resume"]');
   const overlayBest = document.getElementById('overlayBest');
   const overlayStats = document.getElementById('overlayStats');
@@ -497,7 +642,9 @@
     if (action === 'resume') {
       overlay.classList.remove('active');
       if (game.state === 'dead') startGame(); // safety: never freeze on death
-      else { game.resume(); Audio2.startMusic(); }
+      // clear input so the button press that resumed (e.g. controller A) doesn't
+      // leak into gameplay as a jump/duck the moment we un-pause
+      else { Input.clear(); game.resume(); Audio2.startMusic(); }
     } else if (action === 'restart') {
       overlay.classList.remove('active');
       startGame();
@@ -506,20 +653,9 @@
     }
   });
 
-  // ---- ESC to pause / arrow to restart after death ----
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape' || e.code === 'KeyP') {
-      if (game.state === 'playing') { game.pause(); Audio2.stopMusic(); showOverlay('PAUSED', ''); }
-      else if (game.state === 'paused') { overlay.classList.remove('active'); game.resume(); Audio2.startMusic(); }
-    }
-    if (game.state === 'dead' && e.code.startsWith('Arrow')) {
-      if (_deathOverlayTimer) { clearTimeout(_deathOverlayTimer); _deathOverlayTimer = null; }
-      overlay.classList.remove('active');
-      overlayBest.classList.remove('show');
-      overlayStats.innerHTML = '';
-      game._lastRunWasDaily ? startDailyChallenge() : startGame();
-    }
-  });
+  // Pause/resume (Esc / P / controller Start) and menu Back are handled centrally
+  // by MenuNav (js/menunav.js), which drives the existing #pauseBtn and overlay
+  // buttons — so all pause/back logic lives in one place across every screen.
 
   let _updateState = 'idle'; // idle, checking, available, downloading, ready
   async function updateGame() {

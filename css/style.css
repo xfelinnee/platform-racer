@@ -10,6 +10,120 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* ---------- KEYBOARD / CONTROLLER FOCUS HIGHLIGHT ---------- */
+/* Applied by js/menunav.js to whatever menu item is currently selected. */
+.nav-focus {
+  outline: 3px solid var(--cyan) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(46, 230, 255, 0.35), 0 0 20px rgba(46, 230, 255, 0.6) !important;
+  z-index: 6;
+}
+.swatch.nav-focus { outline-offset: 3px; }
+input[type="range"].nav-focus { outline-offset: 4px; }
+
+/* ---------- NAV PROMPT BAR + BUTTON GLYPHS ---------- */
+/* A contextual hint strip (Select / Switch Tabs / Back) pinned to the bottom of
+   the stage. Its glyphs swap between keyboard keycaps and controller buttons
+   depending on the last-used device (body.im-keyboard / body.im-controller). */
+.nav-hints {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 26px;
+  align-items: center;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: rgba(9, 14, 30, 0.72);
+  border: 1px solid rgba(46, 230, 255, 0.22);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+  pointer-events: none;
+  font-family: 'Rajdhani', sans-serif;
+}
+.nav-hint { display: inline-flex; align-items: center; gap: 8px; }
+.nav-hint .nh-label {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: 1px;
+  opacity: 0.85;
+}
+
+/* round face buttons */
+.gbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+  color: #0a0e1a;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+}
+.gbtn-a { background: #6cc04a; color: #0a0e1a; }
+.gbtn-b { background: #e0473b; color: #fff; }
+.gbtn-cross { background: #2b3a86; color: #7fb0ff; border-color: #7fb0ff; }
+.gbtn-circle { background: #6a2230; color: #ff7a92; border-color: #ff7a92; }
+
+/* shoulder pills (LB/RB or L1/R1) */
+.gpill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: rgba(46, 230, 255, 0.14);
+  border: 1.5px solid rgba(46, 230, 255, 0.6);
+  color: var(--cyan);
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+}
+.nav-hint .gpill + .gpill { margin-left: -2px; }
+
+/* keyboard keycaps */
+.gkey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(232, 240, 255, 0.35);
+  border-bottom-width: 3px;
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* L1/R1 badges inside tab bars — only shown when a controller is in use */
+.tab-hint {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 8px;
+  background: rgba(46, 230, 255, 0.12);
+  border: 1.5px solid rgba(46, 230, 255, 0.55);
+  border-radius: 8px;
+  color: var(--cyan);
+  cursor: pointer;
+}
+.tab-hint .gpill { border: none; background: none; padding: 0; min-width: 0; height: auto; }
+body.im-controller .tab-hint { display: inline-flex; }
+
 html, body {
   height: 100%;
   background: var(--bg0);
@@ -532,6 +646,265 @@ input[type="range"]::-moz-range-thumb {
 
 @media (max-width: 1000px) {
   .menu-character { display: none; }
+}
+
+/* ---------- MAIN-MENU LATEST UPDATE CARD ---------- */
+/* Mirrors the character preview on the opposite side of the title. */
+.latest-update {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(calc(-50% + 360px), -50%);
+  z-index: 3;
+  width: 320px;
+  padding: 20px 22px 22px;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(46,230,255,0.12), transparent 60%),
+    linear-gradient(180deg, rgba(20,30,64,0.7), rgba(13,20,48,0.55));
+  border: 2px solid rgba(46,230,255,0.28);
+  box-shadow: 0 16px 50px rgba(0,0,0,0.45), inset 0 0 30px rgba(46,230,255,0.06);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.6s ease both;
+  text-align: left;
+}
+/* Unread: subtle pulsing glow to draw the eye until the player views it. */
+.latest-update.unread {
+  border-color: rgba(46,230,255,0.55);
+  animation: fadeIn 0.6s ease both, luPulse 2.4s ease-in-out infinite;
+}
+@keyframes luPulse {
+  0%, 100% { box-shadow: 0 16px 50px rgba(0,0,0,0.45), inset 0 0 30px rgba(46,230,255,0.06), 0 0 0 rgba(46,230,255,0); }
+  50% { box-shadow: 0 16px 50px rgba(0,0,0,0.45), inset 0 0 34px rgba(46,230,255,0.14), 0 0 26px rgba(46,230,255,0.35); }
+}
+.lu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.lu-eyebrow {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--cyan);
+  opacity: 0.85;
+}
+.lu-badge {
+  display: none;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #0a0e1a;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.latest-update.unread .lu-badge { display: inline-block; }
+.lu-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text);
+  margin-bottom: 12px;
+  line-height: 1.25;
+}
+.lu-list {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lu-list li {
+  position: relative;
+  padding-left: 18px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  opacity: 0.9;
+  line-height: 1.3;
+}
+.lu-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--cyan);
+}
+.lu-btn { width: 100%; padding: 12px 16px; font-size: 17px; }
+
+@media (max-width: 1240px) {
+  .latest-update { display: none; }
+}
+
+/* ---------- WHAT'S NEW / PATCH HISTORY ---------- */
+.whatsnew-panel { width: min(900px, 94vw); }
+.wn-body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+.wn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cyan) rgba(13,20,48,0.5);
+}
+.wn-list::-webkit-scrollbar { width: 10px; }
+.wn-list::-webkit-scrollbar-track { background: rgba(13,20,48,0.5); border-radius: 10px; }
+.wn-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--cyan), var(--violet));
+  border-radius: 10px; border: 2px solid rgba(13,20,48,0.5);
+}
+.wn-ver {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(46,230,255,0.2);
+  background: rgba(9,14,30,0.5);
+  color: var(--text);
+  cursor: pointer;
+  font-family: 'Rajdhani', sans-serif;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.wn-ver:hover { border-color: rgba(46,230,255,0.5); }
+.wn-ver.on {
+  border-color: var(--cyan);
+  background: linear-gradient(90deg, rgba(46,230,255,0.16), rgba(120,75,255,0.12));
+  box-shadow: inset 0 0 18px rgba(46,230,255,0.14);
+}
+.wn-ver-num {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--cyan);
+}
+.wn-ver-title {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  opacity: 0.8;
+}
+.wn-detail {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  padding-right: 8px;
+  text-align: left;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cyan) rgba(13,20,48,0.5);
+}
+.wn-detail::-webkit-scrollbar { width: 10px; }
+.wn-detail::-webkit-scrollbar-track { background: rgba(13,20,48,0.5); border-radius: 10px; }
+.wn-detail::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--cyan), var(--violet));
+  border-radius: 10px; border: 2px solid rgba(13,20,48,0.5);
+}
+.wn-detail:focus { outline: none; }
+/* Softer, inset highlight when the pane itself is the controller/keyboard focus
+   (it's a large region, so the default outer glow would be too heavy). */
+.wn-detail.nav-focus {
+  outline: none !important;
+  box-shadow: inset 0 0 0 2px rgba(46,230,255,0.45), inset 0 0 22px rgba(46,230,255,0.12) !important;
+  border-radius: 10px;
+}
+.wn-d-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.wn-d-version {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.wn-d-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+.wn-d-date {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--text);
+  opacity: 0.55;
+  margin-bottom: 12px;
+}
+.wn-d-summary {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--text);
+  opacity: 0.92;
+  margin-bottom: 20px;
+}
+.wn-cat { margin-bottom: 18px; }
+.wn-cat-head {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--cyan);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.wn-cat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.wn-cat-list li {
+  position: relative;
+  padding-left: 18px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--text);
+  opacity: 0.9;
+}
+.wn-cat-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+}
+
+@media (max-width: 720px) {
+  .wn-body { grid-template-columns: 1fr; }
+  .wn-list { max-height: 140px; }
 }
 
 /* ---------- CUSTOMIZE PANEL ---------- */
