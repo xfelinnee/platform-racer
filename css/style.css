@@ -28,15 +28,15 @@ body {
   background: #000;
 }
 
-/* Fixed 2560x1440 design stage (matches the internal render resolution).
-   JS sets `transform: scale()` to fit it into the window. */
+/* Fixed 2560x1440 design stage (the game's internal coordinate space).
+   JS sets `zoom` to fit it into the window; zoom re-rasterizes the UI at the
+   final size so menus/text stay crisp at any window size. */
 #app {
   position: relative;
   width: 2560px;
   height: 1440px;
   flex: none;
   overflow: hidden;
-  transform-origin: center center;
 }
 
 canvas#game {

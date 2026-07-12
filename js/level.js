@@ -596,7 +596,7 @@ class Level {
       const shakeX = (pl.crumbling && !pl.fallen) ? (Math.sin(t * 0.6) * Math.min(pl.crumbleTimer * 0.25, 3)) : 0;
       const x = pl.x - cam.x + shakeX;
       const y = pl.y - cam.y;
-      if (x > ctx.canvas.width + pl.w || x + pl.w < 0) continue;
+      if (x > DESIGN_W + pl.w || x + pl.w < 0) continue;
 
       let alpha = 1;
       if (pl.crumbling) {
@@ -737,7 +737,7 @@ class Level {
     for (const s of this.saws) {
       const sx = s.x - cam.x;
       const sy = s.y - cam.y;
-      if (sx < -60 || sx > ctx.canvas.width + 60) continue;
+      if (sx < -60 || sx > DESIGN_W + 60) continue;
       ctx.save();
       ctx.translate(sx, sy);
       ctx.rotate(s.angle);
@@ -793,7 +793,7 @@ class Level {
       const lx1 = l.x1 - cam.x;
       const lx2 = l.x2 - cam.x;
       const ly  = l.y  - cam.y;
-      if (lx2 < 0 || lx1 > ctx.canvas.width) continue;
+      if (lx2 < 0 || lx1 > DESIGN_W) continue;
       const baseY = (l.platform.y - cam.y); // platform surface — towers stand on this
       const active = !!l.active;
       const charging = !!l.charging;
@@ -888,7 +888,7 @@ class Level {
     for (const tu of this.turrets) {
       const tx = tu.x - cam.x;
       const ty = tu.y - cam.y;
-      if (tx < -50 || tx > ctx.canvas.width + 50) continue;
+      if (tx < -50 || tx > DESIGN_W + 50) continue;
       const flashing = tu.flash > 0;
       const aim = (typeof tu.aimAngle === 'number') ? tu.aimAngle : Math.PI / 2;
       const recoil = flashing ? Math.min(5, tu.flash * 0.6) : 0;
@@ -966,7 +966,7 @@ class Level {
       if (d.dead) continue;
       const dx = d.x - cam.x;
       const dy = d.y - cam.y;
-      if (dx < -20 || dx > ctx.canvas.width + 20 || dy < -20 || dy > ctx.canvas.height + 20) continue;
+      if (dx < -20 || dx > DESIGN_W + 20 || dy < -20 || dy > DESIGN_H + 20) continue;
       ctx.save();
       ctx.translate(dx, dy);
       // rotate to face direction of travel
@@ -998,7 +998,7 @@ class Level {
     for (const c of this.coins) {
       if (c.got) continue;
       const x = c.x - cam.x;
-      if (x > ctx.canvas.width + 40 || x < -40) continue;
+      if (x > DESIGN_W + 40 || x < -40) continue;
       // animate with a frozen per-coin phase seed (not the live position) so coins on
       // moving platforms — and specials while the camera scrolls — don't jitter
       const ph = (c.phase != null) ? c.phase : c.x;

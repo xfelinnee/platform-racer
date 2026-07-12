@@ -1,4 +1,9 @@
 // Core game: loop, camera, particles, parallax, state
+
+// Fixed 16:9 design resolution: all game logic, camera math and culling work in
+// these units so every player sees exactly the same amount of the world.
+const DESIGN_W = 2560, DESIGN_H = 1440;
+
 class Game {
   constructor(canvas, settings) {
     this.canvas = canvas;
@@ -17,13 +22,28 @@ class Game {
   }
 
   resize() {
-    // Fixed internal resolution: the game always renders as a 2560x1440 (16:9)
-    // screen, so every device sees the exact same amount of the world. The CSS
-    // stage scales this whole 2560x1440 surface down to fit the window.
-    const W = 2560, H = 1440;
-    this.canvas.width = W;
-    this.canvas.height = H;
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Game logic always works in DESIGN_W x DESIGN_H units, but the canvas
+    // backing store is sized to the real physical pixels the canvas occupies
+    // on screen (window fit scale x devicePixelRatio). A single base transform
+    // maps design units -> physical pixels, so rendering is pixel-perfect
+    // crisp at any window size instead of resampling a fixed 2560x1440 image.
+    const W = DESIGN_W, H = DESIGN_H;
+    const s = Math.min(window.innerWidth / W, window.innerHeight / H) || 1;
+    const dpr = window.devicePixelRatio || 1;
+    let pxH = H * s * dpr;
+    // Graphics > Render Resolution: cap the render target height (like a
+    // render-scale option in other games). 0 / missing = native (no cap).
+    const cap = this.settings ? +this.settings.renderRes || 0 : 0;
+    if (cap > 0) pxH = Math.min(pxH, cap);
+    pxH = Math.max(180, Math.round(pxH));
+    const pxW = Math.round(pxH * (W / H));
+    if (this.canvas.width !== pxW || this.canvas.height !== pxH) {
+      this.canvas.width = pxW;
+      this.canvas.height = pxH;
+    }
+    const k = pxW / W;
+    this.ctx.setTransform(k, 0, 0, k, 0, 0);
+    this.ctx.imageSmoothingEnabled = true;
     this.vw = W;
     this.vh = H;
   }

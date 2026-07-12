@@ -31,11 +31,14 @@
   game.resize();
 
   // Fit the fixed 16:9 stage into the window (letterbox/pillarbox when off-aspect).
+  // `zoom` (not `transform: scale`) so the DOM UI re-rasterizes at the final
+  // size — text and menus stay pixel-crisp at any window size instead of being
+  // a downscaled bitmap.
   function fitStage() {
     const app = document.getElementById('app');
     if (!app) return;
     const s = Math.min(window.innerWidth / 2560, window.innerHeight / 1440);
-    app.style.transform = `scale(${s})`;
+    app.style.zoom = s;
   }
   fitStage();
   window.addEventListener('resize', () => { fitStage(); game.resize(); });

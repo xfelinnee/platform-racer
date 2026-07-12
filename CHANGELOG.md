@@ -4,6 +4,23 @@ All notable changes to **Platform Racer** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and the
 project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.1] - 2026-07-11
+
+### Fixed
+- **Blurry rendering on displays smaller than 2560×1440 and in windowed mode.**
+  The game now renders at the display's native pixel resolution instead of a fixed
+  2560×1440 backing store that was scaled down.
+  - `Game.resize()` sizes the canvas backing store to `window size × devicePixelRatio`
+    and applies a single design→physical transform; game logic stays in 2560×1440
+    design units.
+  - Level culling now uses `DESIGN_W`/`DESIGN_H` constants instead of `canvas.width`.
+  - Stage fitting switched from CSS `transform: scale()` to `zoom`, so DOM menus/text
+    are re-rasterized at final size and stay crisp at any window size.
+
+### Added
+- **Graphics → Render Resolution** setting (Native / 1440p / 1080p / 720p) as an
+  optional performance cap. Defaults to **Native**.
+
 ## [1.6.0] - 2026-07-11
 
 ### Added

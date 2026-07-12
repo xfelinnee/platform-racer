@@ -22,6 +22,7 @@ const Settings = {
     vsync: true,
     displayMode: 'fullscreen',    // windowed | fullscreen
     fpsLimit: 60,                 // 30 | 60 | 120 | 144 | 240 | 0 (unlimited)
+    renderRes: 0,                 // render height cap: 0 (native) | 1440 | 1080 | 720
     bgEffects: 'high',            // off | low | medium | high
     showFps: false,
     uiScale: 100,                 // percent
@@ -188,6 +189,11 @@ function initSettingsUI() {
   onOff('vsync', (v) => { d.vsync = v; });
   setupSeg('displayMode', d.displayMode, (val) => { d.displayMode = val; applyDisplayMode(val); Settings.save(); });
   setupSeg('fpsLimit', String(d.fpsLimit), (val) => { d.fpsLimit = +val; Settings.save(); });
+  setupSeg('renderRes', String(d.renderRes), (val) => {
+    d.renderRes = +val; Settings.save();
+    // main.js listens for resize and re-runs game.resize() with the new cap
+    window.dispatchEvent(new Event('resize'));
+  });
   setupSeg('bgEffects', d.bgEffects, (val) => { d.bgEffects = val; Settings.save(); });
   onOff('showFps', (v) => { d.showFps = v; applyHudVisibility(d); });
   setupSeg('colorblind', d.colorblind, (val) => { d.colorblind = val; applyColorblind(val); Settings.save(); });
