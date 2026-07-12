@@ -12,7 +12,8 @@
       verTag.textContent = 'v' + window.desktop.appVersion;
     }
   } catch (e) { /* ignore */ }
-  Audio2.setVolumes(Settings.data.musicVol, Settings.data.sfxVol);
+  // initSettingsUI() already ran Settings.apply(), which pushes every audio/graphics/
+  // input setting into the live systems. Nothing more to prime here.
 
   // Unlock audio + play a click on any button press (browser autoplay policy)
   document.addEventListener('pointerdown', (e) => {
@@ -28,7 +29,29 @@
 
   const game = new Game(canvas, Settings.data);
   game.resize();
-  window.addEventListener('resize', () => game.resize());
+
+  // Fit the fixed 16:9 stage into the window (letterbox/pillarbox when off-aspect).
+  function fitStage() {
+    const app = document.getElementById('app');
+    if (!app) return;
+    const s = Math.min(window.innerWidth / 2560, window.innerHeight / 1440);
+    app.style.transform = `scale(${s})`;
+  }
+  fitStage();
+  window.addEventListener('resize', () => { fitStage(); game.resize(); });
+
+  // ---- WINDOW FOCUS (pause on focus lost / mute when unfocused) ----
+  window.addEventListener('blur', () => {
+    if (Settings.data.muteWhenUnfocused) Audio2.setMuted(true);
+    if (Settings.data.pauseOnFocusLost && game.state === 'playing') {
+      game.pause();
+      Audio2.stopMusic();
+      showOverlay('PAUSED', '');
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (Settings.data.muteWhenUnfocused) Audio2.setMuted(false);
+  });
 
   // Achievement unlocks (from anywhere: mid-run, run end, shop) pop as toasts.
   if (typeof Achievements !== 'undefined') Achievements.setOnUnlock(showAchievementToasts);
@@ -40,6 +63,22 @@
     Input.clear();
     game.start();
     Audio2.startMusic();
+    maybeShowTutorialTip();
+  }
+
+  // Brief control hint at the start of a run (General > Show Tutorial Tips).
+  let _tipTimer = null;
+  function maybeShowTutorialTip() {
+    const tip = document.getElementById('tutorialTip');
+    if (!tip) return;
+    if (!Settings.data.tutorialTips) { tip.classList.remove('show'); return; }
+    // reflect the player's actual key bindings rather than hard-coded keys
+    const kb = Settings.data.keybinds || Input.getBindings();
+    const primary = (a) => keyLabel((kb[a] || [])[0]);
+    tip.textContent = `Move ${primary('left')} / ${primary('right')}  \u00b7  Jump ${primary('jump')}  \u00b7  Duck ${primary('duck')}`;
+    tip.classList.add('show');
+    if (_tipTimer) clearTimeout(_tipTimer);
+    _tipTimer = setTimeout(() => { tip.classList.remove('show'); _tipTimer = null; }, 4500);
   }
 
   function startDailyChallenge() {
@@ -55,6 +94,8 @@
     game.state = 'idle';
     hud.classList.remove('active');
     overlay.classList.remove('active');
+    const tip = document.getElementById('tutorialTip');
+    if (tip) tip.classList.remove('show');
     Audio2.stopMusic();
     updateChip();
     Screens.show('menu');
@@ -152,11 +193,19 @@
 
   // ---- SHOP ----
   let shopTab = 'buffs';
+  // Optionally require an explicit confirmation before any coin purchase.
+  function guardSpend(run) {
+    if (!Settings.data.confirmSpend) { run(); return; }
+    uiConfirm({ title: 'CONFIRM PURCHASE', message: 'Spend coins on this item?', yes: 'Buy', no: 'Cancel' },
+      (ok) => { if (ok) run(); });
+  }
   const shopHandlers = {
     buyUpgrade(id) {
-      const res = Profiles.buy(id);
-      if (res.ok) Audio2.sfx.coin();
-      refreshShop();
+      guardSpend(() => {
+        const res = Profiles.buy(id);
+        if (res.ok) Audio2.sfx.coin();
+        refreshShop();
+      });
     },
     toggleBuff(id) {
       Profiles.toggleBuff(id);
@@ -164,9 +213,11 @@
       refreshShop();
     },
     buyCosmetic(type, id) {
-      const res = Profiles.buyCosmetic(type, id);
-      if (res.ok) { Audio2.sfx.coin(); Profiles.equip(type, id); } // auto-equip on purchase
-      refreshShop();
+      guardSpend(() => {
+        const res = Profiles.buyCosmetic(type, id);
+        if (res.ok) { Audio2.sfx.coin(); Profiles.equip(type, id); } // auto-equip on purchase
+        refreshShop();
+      });
     },
     equip(type, id) {
       Profiles.equip(type, id);
@@ -209,9 +260,11 @@
       return res;
     },
     buyConsumable(id) {
-      const res = Profiles.buyConsumable(id);
-      if (res.ok) Audio2.sfx.coin();
-      refreshShop();
+      guardSpend(() => {
+        const res = Profiles.buyConsumable(id);
+        if (res.ok) Audio2.sfx.coin();
+        refreshShop();
+      });
     },
     armCoinDoubler() {
       Profiles.setCoinDoublerArmed(!Profiles.coinDoublerArmed());
@@ -219,9 +272,11 @@
       refreshShop();
     },
     buyTrail(id) {
-      const res = Profiles.buyTrail(id);
-      if (res.ok) { Audio2.sfx.coin(); Profiles.equipTrail(id); } // auto-equip on purchase
-      refreshShop();
+      guardSpend(() => {
+        const res = Profiles.buyTrail(id);
+        if (res.ok) { Audio2.sfx.coin(); Profiles.equipTrail(id); } // auto-equip on purchase
+        refreshShop();
+      });
     },
     equipTrail(id) {
       Profiles.equipTrail(id);

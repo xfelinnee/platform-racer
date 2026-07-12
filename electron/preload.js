@@ -13,4 +13,6 @@ contextBridge.exposeInMainWorld('desktop', {
   // Persistent save file (survives updates/relaunches). Load is synchronous.
   storageLoad: () => ipcRenderer.sendSync('storage:load'),
   storageSave: (data) => ipcRenderer.send('storage:save', data),
+  // Window display mode (Graphics settings): 'windowed' | 'borderless' | 'fullscreen'
+  setDisplayMode: (mode) => ipcRenderer.send('window:set-display-mode', mode),
 });

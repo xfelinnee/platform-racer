@@ -36,8 +36,9 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1280,
     height: 720,
-    minWidth: 800,
-    minHeight: 500,
+    minWidth: 960,
+    minHeight: 540,
+    fullscreen: true, // always start fullscreen
     backgroundColor: '#070b18',
     title: 'Platform Racer',
     autoHideMenuBar: true,
@@ -143,6 +144,20 @@ ipcMain.handle('download-update', async () => {
 // Renderer asks to quit and install
 ipcMain.on('install-update', () => {
   if (updater) updater.quitAndInstall();
+});
+
+// Renderer asks to change the window display mode (Graphics settings).
+ipcMain.on('window:set-display-mode', (_event, mode) => {
+  if (!win) return;
+  try {
+    if (mode === 'windowed') {
+      win.setFullScreen(false);
+      if (win.isMaximized()) win.unmaximize();
+    } else { // fullscreen (and legacy 'borderless')
+      win.setMenuBarVisibility(false);
+      win.setFullScreen(true);
+    }
+  } catch (e) { /* ignore */ }
 });
 
 // Renderer asks for the real app version (sourced from package.json at build time).

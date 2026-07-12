@@ -17,12 +17,15 @@ class Game {
   }
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.canvas.width = window.innerWidth * dpr;
-    this.canvas.height = window.innerHeight * dpr;
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.vw = window.innerWidth;
-    this.vh = window.innerHeight;
+    // Fixed internal resolution: the game always renders as a 2560x1440 (16:9)
+    // screen, so every device sees the exact same amount of the world. The CSS
+    // stage scales this whole 2560x1440 surface down to fit the window.
+    const W = 2560, H = 1440;
+    this.canvas.width = W;
+    this.canvas.height = H;
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.vw = W;
+    this.vh = H;
   }
 
   _initStars() {
@@ -115,12 +118,14 @@ class Game {
   resume() { if (this.state === 'paused') this.state = 'playing'; }
 
   _loop(now) {
+    requestAnimationFrame(this._loop);
+
     if (!this.last) this.last = now;
     let frame = now - this.last;
     this.last = now;
     if (frame > 250) frame = 250; // avoid spiral after tab refocus
 
-    const STEP = 1000 / 60; // fixed 60Hz physics step
+    const STEP = 1000 / 60; // fixed 60Hz physics step (independent of the render cap)
     if (this.state === 'playing') {
       this._acc = (this._acc || 0) + frame;
       let steps = 0;
@@ -133,8 +138,16 @@ class Game {
     } else {
       this._acc = 0;
     }
+
+    // Optional FPS cap on RENDERING only. rAF is already vsync-bound, so this can
+    // lower but never raise the effective frame rate above the display refresh.
+    const limit = this.settings ? this.settings.fpsLimit : 0;
+    if (limit && limit > 0) {
+      const minInterval = 1000 / limit;
+      if (this._lastRender != null && (now - this._lastRender) < minInterval - 0.5) return;
+    }
+    this._lastRender = now;
     this._render(now);
-    requestAnimationFrame(this._loop);
   }
 
   _update(dt, now) {
@@ -338,6 +351,20 @@ class Game {
   _render(now) {
     const ctx = this.ctx;
     const w = this.vw, h = this.vh;
+    const bg = (this.settings && this.settings.bgEffects) || 'high';
+
+    // FPS readout (Graphics > Show FPS) — smoothed over ~250ms windows.
+    this._fpsFrames = (this._fpsFrames || 0) + 1;
+    this._fpsAcc = (this._fpsAcc || 0) + (now - (this._fpsPrev != null ? this._fpsPrev : now));
+    this._fpsPrev = now;
+    if (this._fpsAcc >= 250) {
+      const fps = Math.round((1000 * this._fpsFrames) / this._fpsAcc);
+      this._fpsFrames = 0; this._fpsAcc = 0;
+      if (this.settings && this.settings.showFps) {
+        const el = document.getElementById('hudFps');
+        if (el) el.textContent = fps;
+      }
+    }
 
     // sky gradient
     const sky = ctx.createLinearGradient(0, 0, 0, h);
@@ -347,8 +374,10 @@ class Game {
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, w, h);
 
-    // parallax stars
-    for (const s of this.stars) {
+    // parallax stars — density scales with the Background Effects setting
+    const starCount = { off: 0, low: 30, medium: 60, high: this.stars.length }[bg] ?? this.stars.length;
+    for (let i = 0; i < starCount; i++) {
+      const s = this.stars[i];
       const px = (s.x * w - this.cam.x * s.z * 0.15) % w;
       const x = (px + w) % w;
       const y = s.y * h - this.cam.y * s.z * 0.1;
@@ -358,9 +387,11 @@ class Game {
     }
     ctx.globalAlpha = 1;
 
-    // distant neon mountains (parallax)
-    this._mountains(ctx, w, h, this.cam.x * 0.25, '#16204f', h * 0.62, 0.5);
-    this._mountains(ctx, w, h, this.cam.x * 0.45, '#1d2c66', h * 0.7, 0.9);
+    // distant neon mountains (parallax) — fewer layers on lower settings
+    if (bg !== 'off') {
+      if (bg !== 'low') this._mountains(ctx, w, h, this.cam.x * 0.25, '#16204f', h * 0.62, 0.5);
+      this._mountains(ctx, w, h, this.cam.x * 0.45, '#1d2c66', h * 0.7, 0.9);
+    }
 
     if (this.level) {
       this.level.draw(ctx, this.cam, now);
@@ -385,12 +416,14 @@ class Game {
     }
     ctx.globalAlpha = 1;
 
-    // vignette
-    const vg = ctx.createRadialGradient(w/2, h/2, h*0.3, w/2, h/2, h*0.8);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,0.45)');
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, w, h);
+    // vignette (only on the richer background settings)
+    if (bg === 'medium' || bg === 'high') {
+      const vg = ctx.createRadialGradient(w/2, h/2, h*0.3, w/2, h/2, h*0.8);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, w, h);
+    }
   }
 
   _mountains(ctx, w, h, offset, color, baseY, alpha) {

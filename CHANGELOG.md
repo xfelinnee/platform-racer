@@ -4,6 +4,35 @@ All notable changes to **Platform Racer** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and the
 project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-07-11
+
+### Added
+- **Full tabbed Settings UI** (General / Audio / Graphics / Controls), replacing the
+  old flat settings screen. All options persist to `localStorage['platformRacer']`
+  and are applied on boot via a central `Settings.apply()`.
+  - **General:** difficulty, Show Timer, Show Distance/Score, Show Tutorial Tips,
+    Pause on Focus Lost, Confirm Before Spending Coins.
+  - **Audio:** Master / Music / SFX / UI volume buses, Mute When Unfocused,
+    Hit / Death Sound toggle.
+  - **Graphics:** Particles, Show FPS, Vsync, Display Mode (Windowed / Fullscreen),
+    FPS Limit (30/60/120/144/240/Unlimited), Background Effects (Off/Low/Medium/High),
+    UI Scale, Colorblind Mode (Off / Protanopia / Deuteranopia / Tritanopia).
+  - **Controls:** Sprint Hold vs Toggle, full WASD + arrow-key remapping (2 slots per
+    action), and controller support (Xbox / PS5 / Steam Deck via the Gamepad API).
+- **Fixed 2560×1440 internal resolution.** The game now always renders as a 16:9
+  2560×1440 screen and the whole stage is uniformly scaled to fit the window
+  (letterbox/pillarbox when off-aspect), so every device sees the same viewport and
+  the UI/HUD can never be cut off or reflowed. Minimum Electron window size raised
+  to 960×540; the app now launches fullscreen.
+- **In-run FPS counter** (Graphics → Show FPS) and a start-of-run tutorial tip that
+  reflects the player's actual key bindings.
+
+### Changed
+- Audio engine gained master + UI volume buses (`Audio2.setVolumes` now takes
+  master/ui) plus mute and hit/death gating.
+- Default jump binding is now `W / ↑` (Space removed); keybindings are capped to two
+  slots so the Settings UI is WYSIWYG.
+
 ## [1.5.0] - 2026-07-09
 
 ### Added

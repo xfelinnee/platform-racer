@@ -1,20 +1,24 @@
 // Procedural audio engine (Web Audio API) — no external files.
 const Audio2 = (() => {
   let ctx = null;
-  let master, musicGain, sfxGain;
+  let master, musicGain, sfxGain, uiGain;
   let musicTimer = null;
   let musicOn = false;
   let step = 0;
 
   // volumes 0..1
-  let musicVol = 0.5, sfxVol = 0.7;
+  let masterVol = 1.0, musicVol = 0.5, sfxVol = 0.7, uiVol = 0.7;
+  let muted = false;          // hard mute (e.g. window unfocused)
+  let hitDeathEnabled = true; // "Hit / Death Sound" toggle
+
+  function masterLevel() { return muted ? 0 : 0.9 * masterVol; }
 
   function init() {
     if (ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = 0.9;
+    master.gain.value = masterLevel();
     master.connect(ctx.destination);
 
     musicGain = ctx.createGain();
@@ -24,6 +28,10 @@ const Audio2 = (() => {
     sfxGain = ctx.createGain();
     sfxGain.gain.value = sfxVol;
     sfxGain.connect(master);
+
+    uiGain = ctx.createGain();
+    uiGain.gain.value = uiVol;
+    uiGain.connect(master);
   }
 
   function resume() {
@@ -31,15 +39,23 @@ const Audio2 = (() => {
     if (ctx.state === 'suspended') ctx.resume();
   }
 
-  function setVolumes(music, sfx) {
+  // master/ui are optional so legacy callers (music, sfx) keep working.
+  function setVolumes(music, sfx, mstr, ui) {
     musicVol = music / 100;
     sfxVol = sfx / 100;
+    if (mstr != null) masterVol = mstr / 100;
+    if (ui != null) uiVol = ui / 100;
     if (musicGain) musicGain.gain.value = musicVol * 0.5;
     if (sfxGain) sfxGain.gain.value = sfxVol;
+    if (uiGain) uiGain.gain.value = uiVol;
+    if (master) master.gain.value = masterLevel();
   }
 
+  function setMuted(m) { muted = !!m; if (master) master.gain.value = masterLevel(); }
+  function setHitDeathEnabled(on) { hitDeathEnabled = !!on; }
+
   // ---- one-shot tone helper ----
-  function tone({ freq = 440, type = 'sine', dur = 0.15, vol = 0.5, slideTo = null, attack = 0.005, decay = null }) {
+  function tone({ freq = 440, type = 'sine', dur = 0.15, vol = 0.5, slideTo = null, attack = 0.005, decay = null, bus = null }) {
     if (!ctx) return;
     const t = ctx.currentTime;
     const osc = ctx.createOscillator();
@@ -50,7 +66,7 @@ const Audio2 = (() => {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t + (decay || dur));
-    osc.connect(g); g.connect(sfxGain);
+    osc.connect(g); g.connect(bus || sfxGain);
     osc.start(t);
     osc.stop(t + dur + 0.05);
   }
@@ -81,10 +97,11 @@ const Audio2 = (() => {
       setTimeout(() => tone({ freq: 1320, type: 'square', dur: 0.12, vol: 0.3 }), 70);
     },
     death() {
+      if (!hitDeathEnabled) return;
       tone({ freq: 440, slideTo: 70, type: 'sawtooth', dur: 0.6, vol: 0.4 });
       noise({ dur: 0.5, vol: 0.25, freq: 1200 });
     },
-    ui() { tone({ freq: 600, type: 'triangle', dur: 0.06, vol: 0.25 }); },
+    ui() { tone({ freq: 600, type: 'triangle', dur: 0.06, vol: 0.25, bus: uiGain }); },
     turret() {
       tone({ freq: 900, slideTo: 220, type: 'sawtooth', dur: 0.12, vol: 0.16 });
       noise({ dur: 0.06, vol: 0.1, freq: 1800 });
@@ -192,5 +209,5 @@ const Audio2 = (() => {
     if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
   }
 
-  return { init, resume, setVolumes, sfx, startMusic, stopMusic };
+  return { init, resume, setVolumes, setMuted, setHitDeathEnabled, sfx, startMusic, stopMusic };
 })();

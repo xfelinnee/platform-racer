@@ -105,7 +105,7 @@
             <span class="btn-glow"></span>
           </button>
         </nav>
-        <footer class="credits"><span id="verTag">v1.5.0</span> &middot; Use A/D or Arrow Keys &middot; Space to Jump &middot; S to Duck</footer>
+        <footer class="credits"><span id="verTag">v1.6.0</span> &middot; Use A/D or Arrow Keys &middot; W / &uarr; to Jump &middot; S to Duck</footer>
       </div>
     </section>
 
@@ -190,35 +190,158 @@
       <div class="menu-bg">
         <div class="grid-floor"></div>
       </div>
-      <div class="panel">
+      <div class="panel settings-panel">
         <h2 class="panel-title">SETTINGS</h2>
 
-        <div class="setting-row">
-          <label>Music Volume</label>
-          <input type="range" id="musicVol" min="0" max="100" value="50" />
-          <span class="val" id="musicVolVal">50</span>
+        <div class="shop-tabs settings-tabs" id="settingsTabs">
+          <button class="shop-tab on" data-tab="general">General</button>
+          <button class="shop-tab" data-tab="audio">Audio</button>
+          <button class="shop-tab" data-tab="graphics">Graphics</button>
+          <button class="shop-tab" data-tab="controls">Controls</button>
         </div>
 
-        <div class="setting-row">
-          <label>SFX Volume</label>
-          <input type="range" id="sfxVol" min="0" max="100" value="70" />
-          <span class="val" id="sfxVolVal">70</span>
-        </div>
-
-        <div class="setting-row">
-          <label>Difficulty</label>
-          <div class="seg" id="difficulty">
-            <button data-val="easy">Easy</button>
-            <button data-val="normal" class="on">Normal</button>
-            <button data-val="hard" class="hard-opt">Hard</button>
+        <div class="settings-body">
+          <!-- GENERAL -->
+          <div id="setTabGeneral" class="settings-pane">
+            <div class="setting-row">
+              <label>Difficulty</label>
+              <div class="seg" id="difficulty">
+                <button data-val="easy">Easy</button>
+                <button data-val="normal" class="on">Normal</button>
+                <button data-val="hard" class="hard-opt">Hard</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>Show Timer</label>
+              <div class="seg" id="showTimer"><button data-val="on" class="on">On</button><button data-val="off">Off</button></div>
+            </div>
+            <div class="setting-row">
+              <label>Show Distance / Score</label>
+              <div class="seg" id="showDistance"><button data-val="on" class="on">On</button><button data-val="off">Off</button></div>
+            </div>
+            <div class="setting-row">
+              <label>Show Tutorial Tips</label>
+              <div class="seg" id="tutorialTips"><button data-val="on" class="on">On</button><button data-val="off">Off</button></div>
+            </div>
+            <div class="setting-row">
+              <label>Pause on Focus Lost</label>
+              <div class="seg" id="pauseOnFocusLost"><button data-val="on" class="on">On</button><button data-val="off">Off</button></div>
+            </div>
+            <div class="setting-row">
+              <label>Confirm Before Spending Coins</label>
+              <div class="seg" id="confirmSpend"><button data-val="on">On</button><button data-val="off" class="on">Off</button></div>
+            </div>
           </div>
-        </div>
 
-        <div class="setting-row">
-          <label>Particles</label>
-          <div class="seg" id="particles">
-            <button data-val="on" class="on">On</button>
-            <button data-val="off">Off</button>
+          <!-- AUDIO -->
+          <div id="setTabAudio" class="settings-pane" style="display:none">
+            <div class="setting-row">
+              <label>Master Volume</label>
+              <input type="range" id="masterVol" min="0" max="100" value="100" />
+              <span class="val" id="masterVolVal">100</span>
+            </div>
+            <div class="setting-row">
+              <label>Music Volume</label>
+              <input type="range" id="musicVol" min="0" max="100" value="50" />
+              <span class="val" id="musicVolVal">50</span>
+            </div>
+            <div class="setting-row">
+              <label>SFX Volume</label>
+              <input type="range" id="sfxVol" min="0" max="100" value="70" />
+              <span class="val" id="sfxVolVal">70</span>
+            </div>
+            <div class="setting-row">
+              <label>UI Volume</label>
+              <input type="range" id="uiVol" min="0" max="100" value="70" />
+              <span class="val" id="uiVolVal">70</span>
+            </div>
+            <div class="setting-row">
+              <label>Mute When Unfocused</label>
+              <div class="seg" id="muteWhenUnfocused"><button data-val="on">On</button><button data-val="off" class="on">Off</button></div>
+            </div>
+            <div class="setting-row">
+              <label>Hit / Death Sound</label>
+              <div class="seg" id="hitDeathSound"><button data-val="on" class="on">On</button><button data-val="off">Off</button></div>
+            </div>
+          </div>
+
+          <!-- GRAPHICS -->
+          <div id="setTabGraphics" class="settings-pane" style="display:none">
+            <div class="setting-row">
+              <label>Particles</label>
+              <div class="seg" id="particles"><button data-val="on" class="on">On</button><button data-val="off">Off</button></div>
+            </div>
+            <div class="setting-row">
+              <label>Show FPS</label>
+              <div class="seg" id="showFps"><button data-val="on">On</button><button data-val="off" class="on">Off</button></div>
+            </div>
+            <div class="setting-row">
+              <label>Vsync</label>
+              <div class="seg" id="vsync"><button data-val="on" class="on">On</button><button data-val="off">Off</button></div>
+            </div>
+            <div class="setting-row">
+              <label>Display Mode</label>
+              <div class="seg" id="displayMode">
+                <button data-val="windowed">Windowed</button>
+                <button data-val="fullscreen" class="on">Fullscreen</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>FPS Limit</label>
+              <div class="seg seg-wrap" id="fpsLimit">
+                <button data-val="30">30</button>
+                <button data-val="60" class="on">60</button>
+                <button data-val="120">120</button>
+                <button data-val="144">144</button>
+                <button data-val="240">240</button>
+                <button data-val="0">Unlimited</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>Background Effects</label>
+              <div class="seg" id="bgEffects">
+                <button data-val="off">Off</button>
+                <button data-val="low">Low</button>
+                <button data-val="medium">Medium</button>
+                <button data-val="high" class="on">High</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>UI Scale</label>
+              <input type="range" id="uiScale" min="50" max="150" step="5" value="100" />
+              <span class="val" id="uiScaleVal">100</span>
+            </div>
+            <div class="setting-row">
+              <label>Colorblind Mode</label>
+              <div class="seg seg-wrap" id="colorblind">
+                <button data-val="off" class="on">Off</button>
+                <button data-val="protanopia">Protanopia</button>
+                <button data-val="deuteranopia">Deuteranopia</button>
+                <button data-val="tritanopia">Tritanopia</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- CONTROLS -->
+          <div id="setTabControls" class="settings-pane" style="display:none">
+            <div class="setting-row">
+              <label>Sprint</label>
+              <div class="seg" id="sprintMode">
+                <button data-val="hold" class="on">Hold</button>
+                <button data-val="toggle">Toggle</button>
+              </div>
+            </div>
+            <h3 class="settings-subhead">Key Bindings</h3>
+            <p class="settings-hint">Click a key, then press a new key to rebind.</p>
+            <div id="keybindList" class="keybind-list"></div>
+            <button class="btn small-btn" id="resetKeybinds"><span class="btn-label">Reset to Defaults</span><span class="btn-glow"></span></button>
+            <h3 class="settings-subhead">Controller</h3>
+            <div class="setting-row">
+              <label>Controller Support</label>
+              <div class="seg" id="controllerEnabled"><button data-val="on" class="on">On</button><button data-val="off">Off</button></div>
+            </div>
+            <p class="settings-hint" id="gamepadStatus">No controller detected.</p>
+            <p class="settings-hint">Xbox, PS5 and Steam Deck controllers are supported.</p>
           </div>
         </div>
 
@@ -234,12 +357,16 @@
 
     <!-- IN-GAME HUD -->
     <div id="hud" class="hud">
-      <div class="hud-item">TIME <span id="hudTime">0.0</span></div>
-      <div class="hud-item">DIST <span id="hudDist">0</span>m</div>
+      <div class="hud-item" id="hudTimeItem">TIME <span id="hudTime">0.0</span></div>
+      <div class="hud-item" id="hudDistItem">DIST <span id="hudDist">0</span>m</div>
+      <div class="hud-item" id="hudFpsItem" style="display:none">FPS <span id="hudFps">0</span></div>
       <div class="hud-item">BEST <span id="hudBest">0</span>m</div>
       <div class="hud-item hud-coins"><span class="coin-ico"></span><span id="hudCoins">0</span></div>
       <button id="pauseBtn" class="hud-pause">II</button>
     </div>
+
+    <!-- TUTORIAL TIP (shown briefly at run start when enabled) -->
+    <div id="tutorialTip" class="tutorial-tip"></div>
 
     <!-- PAUSE / GAME OVER OVERLAY -->
     <section id="overlay" class="screen overlay">
@@ -285,6 +412,15 @@
       </div>
     </section>
   </div>
+
+  <!-- Colorblind correction filters (applied to #app via CSS filter) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <filter id="cb-protanopia"><feColorMatrix type="matrix" values="0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0"/></filter>
+      <filter id="cb-deuteranopia"><feColorMatrix type="matrix" values="0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0"/></filter>
+      <filter id="cb-tritanopia"><feColorMatrix type="matrix" values="0.95 0.05 0 0 0  0 0.433 0.567 0 0  0 0.475 0.525 0 0  0 0 0 1 0"/></filter>
+    </defs>
+  </svg>
 
   <script src="js/audio.js"></script>
   <script src="js/skins.js"></script>

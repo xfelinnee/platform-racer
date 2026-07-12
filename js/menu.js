@@ -1,22 +1,119 @@
 // Settings + screen management
 const Settings = {
-  data: {
+  defaults: {
+    // legacy / core
     musicVol: 50,
     sfxVol: 70,
     difficulty: 'normal',
     particles: true,
     best: 0,
+    // general
+    masterVol: 100,
+    uiVol: 70,
+    showTimer: true,
+    showDistance: true,
+    tutorialTips: true,
+    pauseOnFocusLost: true,
+    confirmSpend: false,
+    // audio
+    muteWhenUnfocused: false,
+    hitDeathSound: true,
+    // graphics
+    vsync: true,
+    displayMode: 'fullscreen',    // windowed | fullscreen
+    fpsLimit: 60,                 // 30 | 60 | 120 | 144 | 240 | 0 (unlimited)
+    bgEffects: 'high',            // off | low | medium | high
+    showFps: false,
+    uiScale: 100,                 // percent
+    colorblind: 'off',            // off | protanopia | deuteranopia | tritanopia
+    // controls
+    sprintMode: 'hold',           // hold | toggle
+    keybinds: null,               // filled from Input defaults on load
+    controllerEnabled: true,
   },
+  data: {},
   load() {
+    this.data = JSON.parse(JSON.stringify(this.defaults));
     try {
       const s = JSON.parse(localStorage.getItem('platformRacer') || '{}');
       Object.assign(this.data, s);
     } catch (e) {}
+    // keybinds default to the Input module's built-ins the first time
+    if (!this.data.keybinds && typeof Input !== 'undefined') {
+      this.data.keybinds = Input.getBindings();
+    }
+    // trim to 2 slots so stored binds match the WYSIWYG Settings UI
+    if (this.data.keybinds) {
+      for (const a in this.data.keybinds) this.data.keybinds[a] = (this.data.keybinds[a] || []).slice(0, 2);
+    }
+    // Borderless was removed (identical to Fullscreen on Windows) — migrate.
+    if (this.data.displayMode === 'borderless') this.data.displayMode = 'fullscreen';
+    return this.data;
   },
   save() {
     localStorage.setItem('platformRacer', JSON.stringify(this.data));
   },
+  // Push every setting into the live systems (audio, input, rendering, window).
+  apply() {
+    const d = this.data;
+    if (typeof Audio2 !== 'undefined') {
+      Audio2.setVolumes(d.musicVol, d.sfxVol, d.masterVol, d.uiVol);
+      Audio2.setHitDeathEnabled(d.hitDeathSound);
+    }
+    if (typeof Input !== 'undefined') {
+      if (d.keybinds) Input.setBindings(d.keybinds);
+      Input.setSprintMode(d.sprintMode);
+      Input.setControllerEnabled(d.controllerEnabled);
+    }
+    applyUiScale(d.uiScale);
+    applyColorblind(d.colorblind);
+    applyDisplayMode(d.displayMode);
+    applyHudVisibility(d);
+  },
 };
+
+// ---- Presentation helpers shared by the settings UI ----
+function applyUiScale(scale) {
+  const z = Math.max(50, Math.min(150, scale || 100)) / 100;
+  document.querySelectorAll('.screen, #hud, #achToasts').forEach(el => {
+    el.style.zoom = z;
+  });
+}
+
+function applyColorblind(mode) {
+  const app = document.getElementById('app');
+  if (!app) return;
+  const map = {
+    protanopia: 'url(#cb-protanopia)',
+    deuteranopia: 'url(#cb-deuteranopia)',
+    tritanopia: 'url(#cb-tritanopia)',
+  };
+  app.style.filter = map[mode] || 'none';
+}
+
+function applyDisplayMode(mode) {
+  if (window.desktop && window.desktop.setDisplayMode) {
+    window.desktop.setDisplayMode(mode);
+    return;
+  }
+  // Browser fallback: only fullscreen is controllable.
+  try {
+    if (mode === 'fullscreen' || mode === 'borderless') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function applyHudVisibility(d) {
+  const t = document.getElementById('hudTimeItem');
+  const dist = document.getElementById('hudDistItem');
+  const fps = document.getElementById('hudFpsItem');
+  if (t) t.style.display = d.showTimer ? '' : 'none';
+  if (dist) dist.style.display = d.showDistance ? '' : 'none';
+  if (fps) fps.style.display = d.showFps ? '' : 'none';
+}
 
 const Screens = {
   show(id) {
@@ -32,30 +129,157 @@ const Screens = {
 function initSettingsUI() {
   Settings.load();
   const d = Settings.data;
+  Settings.apply();
 
-  const music = document.getElementById('musicVol');
-  const sfx = document.getElementById('sfxVol');
-  music.value = d.musicVol;
-  sfx.value = d.sfxVol;
-  document.getElementById('musicVolVal').textContent = d.musicVol;
-  document.getElementById('sfxVolVal').textContent = d.sfxVol;
-  document.getElementById('hudBest').textContent = d.best;
+  // ---- tab switching ----
+  const SET_PANES = { general: 'setTabGeneral', audio: 'setTabAudio', graphics: 'setTabGraphics', controls: 'setTabControls' };
+  const tabs = document.getElementById('settingsTabs');
+  function showSetTab(tab) {
+    if (!SET_PANES[tab]) tab = 'general';
+    tabs.querySelectorAll('.shop-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    for (const k in SET_PANES) document.getElementById(SET_PANES[k]).style.display = (k === tab) ? '' : 'none';
+  }
+  tabs.addEventListener('click', (e) => { const b = e.target.closest('.shop-tab'); if (b) showSetTab(b.dataset.tab); });
+  showSetTab('general');
 
-  music.addEventListener('input', () => {
-    d.musicVol = +music.value;
-    document.getElementById('musicVolVal').textContent = music.value;
-    Audio2.setVolumes(d.musicVol, d.sfxVol);
-    Settings.save();
-  });
-  sfx.addEventListener('input', () => {
-    d.sfxVol = +sfx.value;
-    document.getElementById('sfxVolVal').textContent = sfx.value;
-    Audio2.setVolumes(d.musicVol, d.sfxVol);
-    Settings.save();
-  });
+  const syncAudio = () => Audio2.setVolumes(d.musicVol, d.sfxVol, d.masterVol, d.uiVol);
 
+  function bindSlider(id, onChange) {
+    const el = document.getElementById(id);
+    const valEl = document.getElementById(id + 'Val');
+    if (!el) return;
+    el.value = d[id];
+    if (valEl) valEl.textContent = d[id];
+    el.addEventListener('input', () => {
+      const v = +el.value;
+      if (valEl) valEl.textContent = v;
+      onChange(v);
+      Settings.save();
+    });
+  }
+
+  function onOff(id, cb) {
+    setupSeg(id, d[id] ? 'on' : 'off', (val) => { cb(val === 'on'); Settings.save(); });
+  }
+
+  // ---- Audio sliders ----
+  bindSlider('masterVol', (v) => { d.masterVol = v; syncAudio(); });
+  bindSlider('musicVol', (v) => { d.musicVol = v; syncAudio(); });
+  bindSlider('sfxVol', (v) => { d.sfxVol = v; syncAudio(); });
+  bindSlider('uiVol', (v) => { d.uiVol = v; syncAudio(); });
+
+  // ---- Graphics slider ----
+  bindSlider('uiScale', (v) => { d.uiScale = v; applyUiScale(v); });
+
+  // ---- General ----
   setupSeg('difficulty', d.difficulty, (val) => { d.difficulty = val; Settings.save(); });
-  setupSeg('particles', d.particles ? 'on' : 'off', (val) => { d.particles = (val === 'on'); Settings.save(); });
+  onOff('showTimer', (v) => { d.showTimer = v; applyHudVisibility(d); });
+  onOff('showDistance', (v) => { d.showDistance = v; applyHudVisibility(d); });
+  onOff('tutorialTips', (v) => { d.tutorialTips = v; });
+  onOff('pauseOnFocusLost', (v) => { d.pauseOnFocusLost = v; });
+  onOff('confirmSpend', (v) => { d.confirmSpend = v; });
+
+  // ---- Audio toggles ----
+  onOff('muteWhenUnfocused', (v) => { d.muteWhenUnfocused = v; });
+  onOff('hitDeathSound', (v) => { d.hitDeathSound = v; Audio2.setHitDeathEnabled(v); });
+
+  // ---- Graphics ----
+  onOff('particles', (v) => { d.particles = v; syncParticlesMirror(v); });
+  onOff('vsync', (v) => { d.vsync = v; });
+  setupSeg('displayMode', d.displayMode, (val) => { d.displayMode = val; applyDisplayMode(val); Settings.save(); });
+  setupSeg('fpsLimit', String(d.fpsLimit), (val) => { d.fpsLimit = +val; Settings.save(); });
+  setupSeg('bgEffects', d.bgEffects, (val) => { d.bgEffects = val; Settings.save(); });
+  onOff('showFps', (v) => { d.showFps = v; applyHudVisibility(d); });
+  setupSeg('colorblind', d.colorblind, (val) => { d.colorblind = val; applyColorblind(val); Settings.save(); });
+
+  // ---- Controls ----
+  setupSeg('sprintMode', d.sprintMode, (val) => { d.sprintMode = val; Input.setSprintMode(val); Settings.save(); });
+  onOff('controllerEnabled', (v) => { d.controllerEnabled = v; Input.setControllerEnabled(v); });
+  buildKeybindUI(d);
+  document.getElementById('resetKeybinds').addEventListener('click', () => {
+    d.keybinds = Input.resetBindings();
+    Settings.save();
+    buildKeybindUI(d);
+    Audio2.sfx.ui();
+  });
+
+  // live controller-detection readout
+  const gpStatus = document.getElementById('gamepadStatus');
+  setInterval(() => {
+    if (!gpStatus) return;
+    const name = d.controllerEnabled ? Input.gamepadName() : '';
+    gpStatus.textContent = name ? `Connected: ${name}` : 'No controller detected.';
+  }, 700);
+}
+
+// keep the pause-panel particles toggle mirrored to the main settings screen
+function syncParticlesMirror(on) {
+  document.querySelectorAll('#pauseParticles button').forEach(x =>
+    x.classList.toggle('on', (x.dataset.val === 'on') === on));
+}
+
+// ---- Keybind remapping UI ----
+const KEYBIND_LABELS = { left: 'Move Left', right: 'Move Right', jump: 'Jump', duck: 'Duck', run: 'Sprint', pause: 'Pause' };
+let _keyCapture = null;
+
+function keyLabel(code) {
+  if (!code) return '—';
+  const named = {
+    ArrowLeft: '\u2190', ArrowRight: '\u2192', ArrowUp: '\u2191', ArrowDown: '\u2193',
+    Space: 'Space', ShiftLeft: 'L-Shift', ShiftRight: 'R-Shift',
+    ControlLeft: 'L-Ctrl', ControlRight: 'R-Ctrl', Escape: 'Esc', Enter: 'Enter', Tab: 'Tab',
+  };
+  if (named[code]) return named[code];
+  return code.replace(/^Key/, '').replace(/^Digit/, '');
+}
+
+function buildKeybindUI(d) {
+  const list = document.getElementById('keybindList');
+  if (!list) return;
+  list.innerHTML = '';
+  const binds = d.keybinds || Input.getBindings();
+  for (const action in KEYBIND_LABELS) {
+    const codes = binds[action] || [];
+    const row = document.createElement('div');
+    row.className = 'keybind-row';
+    row.innerHTML = `<label></label><div class="keybind-keys"></div>`;
+    row.querySelector('label').textContent = KEYBIND_LABELS[action];
+    const keysEl = row.querySelector('.keybind-keys');
+    for (let slot = 0; slot < 2; slot++) {
+      const btn = document.createElement('button');
+      btn.className = 'key-btn';
+      btn.textContent = keyLabel(codes[slot]);
+      btn.addEventListener('click', () => captureKey(d, action, slot, btn));
+      keysEl.appendChild(btn);
+    }
+    list.appendChild(row);
+  }
+}
+
+function captureKey(d, action, slot, btn) {
+  if (_keyCapture) return;
+  document.querySelectorAll('.key-btn.capturing').forEach(b => b.classList.remove('capturing'));
+  btn.classList.add('capturing');
+  btn.textContent = 'Press key';
+  Input.setCapturing(true);
+  _keyCapture = true;
+  const handler = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.removeEventListener('keydown', handler, true);
+    Input.setCapturing(false);
+    _keyCapture = null;
+    if (e.code !== 'Escape') {
+      if (!d.keybinds) d.keybinds = Input.getBindings();
+      const codes = (d.keybinds[action] || []).slice(0, 2);
+      codes[slot] = e.code;
+      d.keybinds[action] = codes.filter(Boolean);
+      Input.setBindings(d.keybinds);
+      Settings.save();
+    }
+    buildKeybindUI(d);
+  };
+  window.addEventListener('keydown', handler, true);
 }
 
 function setupSeg(id, current, onChange) {
