@@ -4,7 +4,7 @@
   "version": "1.6.2",
   "description": "A fast neon platformer with profiles, a coin shop, and (soon) multiplayer.",
   "author": {
-    "name": "Max Stupin"
+    "name": "xfelinnee"
   },
   "main": "electron/main.js",
   "scripts": {
